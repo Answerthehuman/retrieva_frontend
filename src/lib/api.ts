@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Chat, Message, Product } from '@/store/chatStore';
 
 // ✅ Set your backend URL here or in .env as VITE_API_BASE_URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://nonrefractive-lisette-lithely.ngrok-free.dev';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
