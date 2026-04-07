@@ -40,7 +40,11 @@ export const chatApi = {
 
   // Send a message to the /chat endpoint
   sendMessage: async (message: string): Promise<ChatApiResponse> => {
-    const response = await api.post<ChatApiResponse>('/chat', { message });
+    const response = await api.post<ChatApiResponse>('/chat', {
+      query: message,
+      messages: [],
+      thread_id: 'default_thread',
+    });
     return response.data;
   },
 };
