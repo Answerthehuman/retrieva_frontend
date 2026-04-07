@@ -8,11 +8,11 @@ import { useToast } from '@/hooks/use-toast';
 
 export const MessageInput = () => {
   const [input, setInput] = useState('');
-  const { currentChatId, addMessage, setIsLoading, isLoading } = useChatStore();
+  const { addMessage, setIsLoading, isLoading } = useChatStore();
   const { toast } = useToast();
 
   const handleSend = async () => {
-    if (!input.trim() || !currentChatId || isLoading) return;
+    if (!input.trim() || isLoading) return;
 
     const userMessage = {
       role: 'user' as const,
@@ -20,26 +20,28 @@ export const MessageInput = () => {
       timestamp: new Date().toISOString(),
     };
 
-    // Add user message immediately
     addMessage(userMessage);
     setInput('');
     setIsLoading(true);
 
     try {
-      const response = await chatApi.sendMessage(currentChatId, userMessage.content);
-      
-      // Simulate typing effect
+      const data = await chatApi.sendMessage(userMessage.content);
+
+      const textContent = [data.response, data.metadata?.['inv-response']]
+        .filter(Boolean)
+        .join('\n\n');
+
       const assistantMessage = {
         role: 'assistant' as const,
-        content: response.assistant_response,
+        content: textContent,
         timestamp: new Date().toISOString(),
+        products: data.metadata?.products || [],
       };
 
-      // Simple typing simulation
       setTimeout(() => {
         addMessage(assistantMessage);
         setIsLoading(false);
-      }, 500);
+      }, 400);
     } catch (error) {
       console.error('Failed to send message:', error);
       setIsLoading(false);
@@ -66,18 +68,14 @@ export const MessageInput = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={
-              currentChatId
-                ? 'Type your message... (Enter to send, Shift+Enter for new line)'
-                : 'Select or create a chat to start messaging'
-            }
-            disabled={!currentChatId || isLoading}
+            placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
+            disabled={isLoading}
             className="min-h-[56px] max-h-[200px] resize-none"
             rows={1}
           />
           <Button
             onClick={handleSend}
-            disabled={!input.trim() || !currentChatId || isLoading}
+            disabled={!input.trim() || isLoading}
             size="icon"
             className="h-14 w-14 shrink-0"
           >

@@ -1,7 +1,7 @@
 import axios from 'axios';
-import { Chat, Message } from '@/store/chatStore';
+import { Chat, Message, Product } from '@/store/chatStore';
 
-// Configure your API base URL here
+// ✅ Set your backend URL here or in .env as VITE_API_BASE_URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const api = axios.create({
@@ -10,6 +10,14 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+export interface ChatApiResponse {
+  response: string;
+  metadata: {
+    products: Product[];
+    'inv-response': string;
+  };
+}
 
 export const chatApi = {
   // Get all chats
@@ -30,15 +38,9 @@ export const chatApi = {
     return response.data;
   },
 
-  // Send a message to a chat
-  sendMessage: async (
-    chatId: string,
-    message: string
-  ): Promise<{ assistant_response: string }> => {
-    const response = await api.post<{ assistant_response: string }>(
-      `/chats/${chatId}/messages`,
-      { message }
-    );
+  // Send a message to the /chat endpoint
+  sendMessage: async (message: string): Promise<ChatApiResponse> => {
+    const response = await api.post<ChatApiResponse>('/chat', { message });
     return response.data;
   },
 };

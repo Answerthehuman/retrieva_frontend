@@ -1,9 +1,20 @@
 import { create } from 'zustand';
 
+export interface Product {
+  index_number: number;
+  product_url: string;
+  product_image_url: string;
+  brand: string;
+  product_category: string;
+  product_colour: string;
+  occasions: string;
+}
+
 export interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  products?: Product[];
 }
 
 export interface Chat {
