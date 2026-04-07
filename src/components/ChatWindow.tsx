@@ -5,7 +5,7 @@ import { MessageInput } from './MessageInput';
 import { Loader2 } from 'lucide-react';
 
 export const ChatWindow = () => {
-  const { messages, isLoading, currentChatId } = useChatStore();
+  const { messages, isLoading } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -20,20 +20,16 @@ export const ChatWindow = () => {
     <div className="flex flex-col h-screen">
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto">
-        {!currentChatId ? (
+        {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-semibold text-foreground">
                 Welcome to RAG Chatbot
               </h2>
               <p className="text-muted-foreground">
-                Start a new chat or select an existing one
+                Ask me anything to get started
               </p>
             </div>
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-muted-foreground">No messages yet. Start the conversation!</p>
           </div>
         ) : (
           <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
