@@ -1,87 +1,21 @@
-import { useEffect } from 'react';
-import { PanelLeftClose, PanelLeft } from 'lucide-react';
+import { PanelLeftClose, PanelLeft, Plus } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
-import { ChatSearchBar } from './ChatSearchBar';
-import { ChatListItem } from './ChatListItem';
 import { Button } from './ui/button';
-import { chatApi } from '@/lib/api';
-import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { ScrollArea } from './ui/scroll-area';
 
 export const ChatSidebar = () => {
   const {
     chats,
     currentChatId,
     isSidebarOpen,
-    searchQuery,
     toggleSidebar,
-    setChats,
-    setCurrentChatId,
-    setMessages,
-    reset,
+    createNewChat,
+    selectChat,
   } = useChatStore();
-  const { toast } = useToast();
-
-  useEffect(() => {
-    loadChats();
-  }, []);
-
-  const loadChats = async () => {
-    try {
-      const data = await chatApi.getChats();
-      setChats(data);
-    } catch (error) {
-      console.error('Failed to load chats:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load chat history',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleNewChat = async () => {
-    try {
-      const { id } = await chatApi.createChat();
-      const newChat = { id, title: 'New Chat' };
-      setChats([newChat, ...chats]);
-      setCurrentChatId(id);
-      reset();
-      toast({
-        title: 'Success',
-        description: 'New chat created',
-      });
-    } catch (error) {
-      console.error('Failed to create chat:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to create new chat',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleSelectChat = async (chatId: string) => {
-    try {
-      setCurrentChatId(chatId);
-      const messages = await chatApi.getChatMessages(chatId);
-      setMessages(messages);
-    } catch (error) {
-      console.error('Failed to load chat messages:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load chat messages',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const filteredChats = chats.filter((chat) =>
-    chat.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <>
-      {/* Toggle button when sidebar is closed */}
       {!isSidebarOpen && (
         <Button
           variant="ghost"
@@ -93,13 +27,12 @@ export const ChatSidebar = () => {
         </Button>
       )}
 
-      {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen bg-card border-r border-border transition-transform duration-300 ease-in-out z-40 ${
+        className={cn(
+          'fixed left-0 top-0 h-screen bg-card border-r border-border transition-transform duration-300 ease-in-out z-40 w-64 flex flex-col',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } w-64 flex flex-col`}
+        )}
       >
-        {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="font-semibold text-foreground">Chats</h2>
           <Button variant="ghost" size="icon" onClick={toggleSidebar}>
@@ -107,33 +40,34 @@ export const ChatSidebar = () => {
           </Button>
         </div>
 
-        {/* Search and New Chat */}
-        <div className="p-4 space-y-3">
-          <ChatSearchBar />
-          <Button onClick={handleNewChat} className="w-full" variant="default">
-            New Chat
+        <div className="p-4">
+          <Button onClick={() => createNewChat()} className="w-full gap-2" variant="default">
+            <Plus className="h-4 w-4" /> New Chat
           </Button>
         </div>
 
-        {/* Chat List */}
-        <div className="flex-1 overflow-y-auto px-2">
-          {filteredChats.length === 0 ? (
-            <p className="text-center text-muted-foreground text-sm py-4">
-              {searchQuery ? 'No chats found' : 'No chats yet'}
-            </p>
+        <ScrollArea className="flex-1 px-2">
+          {chats.length === 0 ? (
+            <p className="text-center text-muted-foreground text-sm py-4">No chats yet</p>
           ) : (
             <div className="space-y-1">
-              {filteredChats.map((chat) => (
-                <ChatListItem
+              {chats.map((chat) => (
+                <button
                   key={chat.id}
-                  chat={chat}
-                  isActive={chat.id === currentChatId}
-                  onSelect={() => handleSelectChat(chat.id)}
-                />
+                  onClick={() => selectChat(chat.id)}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors text-sm',
+                    'hover:bg-accent/50',
+                    chat.id === currentChatId && 'bg-accent text-accent-foreground'
+                  )}
+                >
+                  <span className="flex-1 truncate">{chat.title}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{chat.threadId}</span>
+                </button>
               ))}
             </div>
           )}
-        </div>
+        </ScrollArea>
       </aside>
     </>
   );
