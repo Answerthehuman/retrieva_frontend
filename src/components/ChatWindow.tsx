@@ -5,30 +5,23 @@ import { MessageInput } from './MessageInput';
 import { Loader2 } from 'lucide-react';
 
 export const ChatWindow = () => {
-  const { messages, isLoading } = useChatStore();
+  const { getCurrentChat, isLoading } = useChatStore();
+  const chat = getCurrentChat();
+  const messages = chat?.messages || [];
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   return (
     <div className="flex flex-col h-screen">
-      {/* Messages Area */}
       <div className="flex-1 overflow-y-auto">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-2">
-              <h2 className="text-2xl font-semibold text-foreground">
-                Welcome to RAG Chatbot
-              </h2>
-              <p className="text-muted-foreground">
-                Ask me anything to get started
-              </p>
+              <h2 className="text-2xl font-semibold text-foreground">Welcome to RAG Chatbot</h2>
+              <p className="text-muted-foreground">Ask me anything to get started</p>
             </div>
           </div>
         ) : (
@@ -46,8 +39,6 @@ export const ChatWindow = () => {
           </div>
         )}
       </div>
-
-      {/* Input Area */}
       <MessageInput />
     </div>
   );
