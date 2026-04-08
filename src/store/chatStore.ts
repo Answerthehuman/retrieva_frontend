@@ -30,6 +30,8 @@ interface ChatState {
   nextThreadNumber: number;
   isLoading: boolean;
   isSidebarOpen: boolean;
+  isAuthenticated: boolean;
+  user: { username: string } | null;
 
   createNewChat: () => string;
   selectChat: (id: string) => void;
@@ -38,14 +40,24 @@ interface ChatState {
   getCurrentChat: () => Chat | undefined;
   setIsLoading: (loading: boolean) => void;
   toggleSidebar: () => void;
+  login: (username: string, password: string) => boolean;
+  logout: () => void;
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
-  chats: [],
-  currentChatId: null,
-  nextThreadNumber: 1,
-  isLoading: false,
-  isSidebarOpen: true,
+const STORAGE_KEY = 'chat-auth-state';
+
+export const useChatStore = create<ChatState>((set, get) => {
+  // Load initial auth state from localStorage
+  const savedAuth = localStorage.getItem(STORAGE_KEY);
+  const initialAuth = savedAuth ? JSON.parse(savedAuth) : { isAuthenticated: false, user: null };
+
+  return {
+    chats: [],
+    currentChatId: null,
+    nextThreadNumber: 1,
+    isLoading: false,
+    isSidebarOpen: true,
+    ...initialAuth,
 
   createNewChat: () => {
     const { nextThreadNumber, chats } = get();
@@ -93,6 +105,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return chats.find((c) => c.id === currentChatId);
   },
 
-  setIsLoading: (loading) => set({ isLoading: loading }),
-  toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
-}));
+    setIsLoading: (loading) => set({ isLoading: loading }),
+    toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
+
+    login: (username, password) => {
+      // Dummy credentials check
+      if (username === 'admin' && password === 'password') {
+        const authData = { isAuthenticated: true, user: { username } };
+        set(authData);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(authData));
+        return true;
+      }
+      return false;
+    },
+
+    logout: () => {
+      const authData = { isAuthenticated: false, user: null };
+      set(authData);
+      localStorage.removeItem(STORAGE_KEY);
+    },
+  };
+});
+
