@@ -81,7 +81,6 @@ export const MessageInput = ({ isLanding }: MessageInputProps) => {
       try {
         const audioBlob = await stopRecording();
         setIsTranscribing(true);
-        toast({ title: 'Transcribing...', description: 'Analyzing your speech.' });
 
         const sarvam = new SarvamAIClient({
           apiSubscriptionKey: import.meta.env.VITE_SARVAM_API_KEY || ''
@@ -104,10 +103,14 @@ export const MessageInput = ({ isLanding }: MessageInputProps) => {
 
         if (response.transcript) {
           setInput(prev => prev + (prev ? ' ' : '') + response.transcript);
-          toast({ title: 'Success', description: 'Speech transcribed.' });
         } else {
-          toast({ title: 'No transcript', description: 'Could not find any speech in the audio.' });
+          toast({ 
+            title: 'No transcript', 
+            description: 'Could not find any speech in the audio.',
+            variant: 'destructive'
+          });
         }
+
       } catch (error: any) {
         console.error('Transcription failed details:', error);
         

@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { Button } from './ui/button';
+import { ModeToggle } from './ModeToggle';
 
 export const ChatWindow = () => {
   const { getCurrentChat, isLoading, logout } = useChatStore();
@@ -28,8 +29,8 @@ export const ChatWindow = () => {
   return (
     <div className="flex flex-col h-screen bg-background relative">
       {/* User profile section in top-right */}
-      <div className="absolute top-6 right-6 flex items-center gap-3 z-50">
-        <span className="hidden md:inline-block text-sm font-semibold text-foreground/70">John Doe</span>
+      <div className="absolute top-6 right-6 flex items-center gap-2 z-50">
+        <span className="hidden md:inline-block text-sm font-semibold text-foreground/70 mr-1">John Doe</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 overflow-hidden border border-border shadow-sm hover:scale-110 transition-transform">
@@ -61,7 +62,9 @@ export const ChatWindow = () => {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <ModeToggle />
       </div>
+
 
       {/* Branding in top-left corner */}
       {isLanding && (

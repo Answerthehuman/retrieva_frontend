@@ -37,6 +37,7 @@ interface ChatState {
   selectChat: (id: string) => void;
   addMessageToCurrentChat: (message: Message) => void;
   updateChatTitle: (id: string, title: string) => void;
+  deleteChat: (id: string) => void;
   getCurrentChat: () => Chat | undefined;
   setIsLoading: (loading: boolean) => void;
   toggleSidebar: () => void;
@@ -59,51 +60,60 @@ export const useChatStore = create<ChatState>((set, get) => {
     isSidebarOpen: true,
     ...initialAuth,
 
-  createNewChat: () => {
-    const { nextThreadNumber, chats } = get();
-    const threadId = `test${nextThreadNumber}`;
-    const newChat: Chat = {
-      id: crypto.randomUUID(),
-      title: 'New Chat',
-      threadId,
-      messages: [],
-    };
-    set({
-      chats: [newChat, ...chats],
-      currentChatId: newChat.id,
-      nextThreadNumber: nextThreadNumber + 1,
-    });
-    return newChat.id;
-  },
+    createNewChat: () => {
+      const { nextThreadNumber, chats } = get();
+      const threadId = `test${nextThreadNumber}`;
+      const newChat: Chat = {
+        id: crypto.randomUUID(),
+        title: 'New Chat',
+        threadId,
+        messages: [],
+      };
+      set({
+        chats: [newChat, ...chats],
+        currentChatId: newChat.id,
+        nextThreadNumber: nextThreadNumber + 1,
+      });
+      return newChat.id;
+    },
 
-  selectChat: (id) => set({ currentChatId: id }),
+    selectChat: (id) => set({ currentChatId: id }),
 
-  addMessageToCurrentChat: (message) => {
-    const { chats, currentChatId } = get();
-    if (!currentChatId) return;
-    const updated = chats.map((chat) => {
-      if (chat.id !== currentChatId) return chat;
-      const newMessages = [...chat.messages, message];
-      // Auto-title on first user message
-      const title =
-        chat.messages.length === 0 && message.role === 'user'
-          ? message.content.slice(0, 40) + (message.content.length > 40 ? '…' : '')
-          : chat.title;
-      return { ...chat, messages: newMessages, title };
-    });
-    set({ chats: updated });
-  },
+    deleteChat: (id) => {
+      const { chats, currentChatId } = get();
+      const updatedChats = chats.filter((chat) => chat.id !== id);
+      set({
+        chats: updatedChats,
+        currentChatId: currentChatId === id ? (updatedChats.length > 0 ? updatedChats[0].id : null) : currentChatId,
+      });
+    },
 
-  updateChatTitle: (id, title) => {
-    set({
-      chats: get().chats.map((c) => (c.id === id ? { ...c, title } : c)),
-    });
-  },
+    addMessageToCurrentChat: (message) => {
+      const { chats, currentChatId } = get();
+      if (!currentChatId) return;
+      const updated = chats.map((chat) => {
+        if (chat.id !== currentChatId) return chat;
+        const newMessages = [...chat.messages, message];
+        // Auto-title on first user message
+        const title =
+          chat.messages.length === 0 && message.role === 'user'
+            ? message.content.slice(0, 40) + (message.content.length > 40 ? '…' : '')
+            : chat.title;
+        return { ...chat, messages: newMessages, title };
+      });
+      set({ chats: updated });
+    },
 
-  getCurrentChat: () => {
-    const { chats, currentChatId } = get();
-    return chats.find((c) => c.id === currentChatId);
-  },
+    updateChatTitle: (id, title) => {
+      set({
+        chats: get().chats.map((c) => (c.id === id ? { ...c, title } : c)),
+      });
+    },
+
+    getCurrentChat: () => {
+      const { chats, currentChatId } = get();
+      return chats.find((c) => c.id === currentChatId);
+    },
 
     setIsLoading: (loading) => set({ isLoading: loading }),
     toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
@@ -126,4 +136,5 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
   };
 });
+
 
