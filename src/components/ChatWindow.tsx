@@ -16,7 +16,7 @@ import { Button } from './ui/button';
 import { ModeToggle } from './ModeToggle';
 
 export const ChatWindow = () => {
-  const { getCurrentChat, isLoading, logout } = useChatStore();
+  const { getCurrentChat, isLoading, logout, statusText } = useChatStore();
   const chat = getCurrentChat();
   const messages = chat?.messages || [];
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -102,7 +102,7 @@ export const ChatWindow = () => {
             {isLoading && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Assistant is thinking...</span>
+                <span className="text-sm">{statusText || "Assistant is thinking..."}</span>
               </div>
             )}
             <div ref={messagesEndRef} />

@@ -8,6 +8,7 @@ export interface Product {
   product_category: string;
   product_colour: string;
   occasions: string;
+  stream?: string;
 }
 
 export interface Message {
@@ -20,7 +21,7 @@ export interface Message {
 export interface Chat {
   id: string;
   title: string;
-  threadId: string;
+  sessionId: string | null;
   messages: Message[];
 }
 
@@ -29,6 +30,7 @@ interface ChatState {
   currentChatId: string | null;
   nextThreadNumber: number;
   isLoading: boolean;
+  statusText: string;
   isSidebarOpen: boolean;
   isAuthenticated: boolean;
   user: { username: string } | null;
@@ -37,55 +39,70 @@ interface ChatState {
   selectChat: (id: string) => void;
   addMessageToCurrentChat: (message: Message) => void;
   updateChatTitle: (id: string, title: string) => void;
+  updateChatSession: (id: string, sessionId: string) => void;
   deleteChat: (id: string) => void;
   getCurrentChat: () => Chat | undefined;
   setIsLoading: (loading: boolean) => void;
+  setStatusText: (text: string) => void;
+  updateLastMessageInCurrentChat: (updater: (message: Message) => Message) => void;
   toggleSidebar: () => void;
   login: (username: string, password: string) => boolean;
   logout: () => void;
 }
 
 const STORAGE_KEY = 'chat-auth-state';
+const CHATS_STORAGE_KEY = 'chat-history-state';
 
 export const useChatStore = create<ChatState>((set, get) => {
   // Load initial auth state from localStorage
   const savedAuth = localStorage.getItem(STORAGE_KEY);
   const initialAuth = savedAuth ? JSON.parse(savedAuth) : { isAuthenticated: false, user: null };
 
+  // Load initial chat history from localStorage
+  const savedChats = localStorage.getItem(CHATS_STORAGE_KEY);
+  const initialChatsState = savedChats ? JSON.parse(savedChats) : { chats: [], currentChatId: null };
+
   return {
-    chats: [],
-    currentChatId: null,
+    chats: initialChatsState.chats || [],
+    currentChatId: initialChatsState.currentChatId || null,
     nextThreadNumber: 1,
     isLoading: false,
+    statusText: '',
     isSidebarOpen: true,
     ...initialAuth,
 
     createNewChat: () => {
-      const { nextThreadNumber, chats } = get();
-      const threadId = `test${nextThreadNumber}`;
+      const { chats } = get();
       const newChat: Chat = {
         id: crypto.randomUUID(),
         title: 'New Chat',
-        threadId,
+        sessionId: null, // Will be set on first message
         messages: [],
       };
+      const updatedChats = [newChat, ...chats];
       set({
-        chats: [newChat, ...chats],
+        chats: updatedChats,
         currentChatId: newChat.id,
-        nextThreadNumber: nextThreadNumber + 1,
       });
+      localStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify({ chats: updatedChats, currentChatId: newChat.id }));
       return newChat.id;
     },
 
-    selectChat: (id) => set({ currentChatId: id }),
+    selectChat: (id) => {
+      set({ currentChatId: id });
+      const { chats } = get();
+      localStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify({ chats, currentChatId: id }));
+    },
 
     deleteChat: (id) => {
       const { chats, currentChatId } = get();
       const updatedChats = chats.filter((chat) => chat.id !== id);
+      const nextId = currentChatId === id ? (updatedChats.length > 0 ? updatedChats[0].id : null) : currentChatId;
       set({
         chats: updatedChats,
-        currentChatId: currentChatId === id ? (updatedChats.length > 0 ? updatedChats[0].id : null) : currentChatId,
+        currentChatId: nextId,
       });
+      localStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify({ chats: updatedChats, currentChatId: nextId }));
     },
 
     addMessageToCurrentChat: (message) => {
@@ -102,12 +119,25 @@ export const useChatStore = create<ChatState>((set, get) => {
         return { ...chat, messages: newMessages, title };
       });
       set({ chats: updated });
+      localStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify({ chats: updated, currentChatId }));
     },
 
     updateChatTitle: (id, title) => {
+      const { currentChatId } = get();
+      const updated = get().chats.map((c) => (c.id === id ? { ...c, title } : c));
       set({
-        chats: get().chats.map((c) => (c.id === id ? { ...c, title } : c)),
+        chats: updated,
       });
+      localStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify({ chats: updated, currentChatId }));
+    },
+    
+    updateChatSession: (id, sessionId) => {
+      const { currentChatId } = get();
+      const updated = get().chats.map((c) => (c.id === id ? { ...c, sessionId } : c));
+      set({
+        chats: updated,
+      });
+      localStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify({ chats: updated, currentChatId }));
     },
 
     getCurrentChat: () => {
@@ -116,6 +146,21 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     setIsLoading: (loading) => set({ isLoading: loading }),
+    setStatusText: (text) => set({ statusText: text }),
+    updateLastMessageInCurrentChat: (updater) => {
+      const { chats, currentChatId } = get();
+      if (!currentChatId) return;
+      const updated = chats.map((chat) => {
+        if (chat.id !== currentChatId) return chat;
+        if (chat.messages.length === 0) return chat;
+        const newMessages = [...chat.messages];
+        const lastIndex = newMessages.length - 1;
+        newMessages[lastIndex] = updater(newMessages[lastIndex]);
+        return { ...chat, messages: newMessages };
+      });
+      set({ chats: updated });
+      localStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify({ chats: updated, currentChatId }));
+    },
     toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
 
     login: (username, password) => {

@@ -16,7 +16,15 @@ interface MessageInputProps {
 export const MessageInput = ({ isLanding }: MessageInputProps) => {
   const [input, setInput] = useState('');
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const { addMessageToCurrentChat, setIsLoading, isLoading, getCurrentChat, createNewChat } = useChatStore();
+  const { 
+    addMessageToCurrentChat, 
+    setIsLoading, 
+    setStatusText,
+    updateLastMessageInCurrentChat,
+    isLoading, 
+    getCurrentChat, 
+    createNewChat 
+  } = useChatStore();
   const { toast } = useToast();
   const { isRecording, startRecording, stopRecording } = useAudioRecorder();
 
@@ -39,25 +47,125 @@ export const MessageInput = ({ isLanding }: MessageInputProps) => {
     addMessageToCurrentChat(userMessage);
     setInput('');
     setIsLoading(true);
+    setStatusText("Assistant is thinking...");
 
     try {
-      const data = await chatApi.sendMessage(userMessage.content, chat.threadId);
+      let sessionId = chat.sessionId;
+      
+      // If no session exists yet, create one
+      if (!sessionId) {
+        const sessionData = await chatApi.createSession(undefined, userMessage.content);
+        sessionId = sessionData.session_id;
+        useChatStore.getState().updateChatSession(chat.id, sessionId);
+      }
 
-      const textContent = [data.response, data.metadata?.['inv-response']]
-        .filter(Boolean)
-        .join('\n\n');
-
-      const assistantMessage = {
+      // Add an empty assistant message that we'll stream into
+      const initialAssistantMessage = {
         role: 'assistant' as const,
-        content: textContent,
+        content: '',
         timestamp: new Date().toISOString(),
-        products: data.metadata?.products || [],
+        products: [],
+      };
+      addMessageToCurrentChat(initialAssistantMessage);
+
+      const productsMap = new Map<string, any>();
+      let accumulatedText = "";
+
+      const mapStatusToStage = (status: string): string => {
+        const lower = status.toLowerCase();
+        if (lower.includes("checking trends") || lower.includes("checking latest fashion")) {
+          return "Checking trends";
+        }
+        if (lower.includes("retrieving inventory") || lower.includes("retrieving from inventory") || lower.includes("retrieving matching products")) {
+          return "Retrieving from inventory";
+        }
+        if (lower.includes("reranking") || lower.includes("rerank")) {
+          return "Reranking chunks";
+        }
+        return status;
       };
 
-      setTimeout(() => {
-        addMessageToCurrentChat(assistantMessage);
-        setIsLoading(false);
-      }, 400);
+      const updateStatusIfAllowed = (rawStatus: string) => {
+        const mappedStatus = mapStatusToStage(rawStatus);
+        const STATUS_WEIGHTS: Record<string, number> = {
+          "": 0,
+          "Assistant is thinking...": 0,
+          "Checking trends": 1,
+          "Retrieving from inventory": 2,
+          "Reranking chunks": 3
+        };
+        const currentStatus = useChatStore.getState().statusText;
+        const currentWeight = STATUS_WEIGHTS[currentStatus] || 0;
+        const newWeight = STATUS_WEIGHTS[mappedStatus] || 0;
+        if (newWeight >= currentWeight) {
+          setStatusText(mappedStatus);
+        }
+      };
+
+      await chatApi.sendMessageStream(userMessage.content, sessionId, (type, data) => {
+        if (type === 'retrieval_start') {
+          updateStatusIfAllowed("Checking trends");
+        } else if (type === 'status') {
+          updateStatusIfAllowed(data.content || "Processing...");
+        } else if (type === 'generation_start') {
+          updateStatusIfAllowed("Checking trends");
+        } else if (type === 'text' || type === 'token' || type === 'markdown') {
+          const token = data.content || '';
+          accumulatedText += token;
+          updateLastMessageInCurrentChat((msg) => ({
+            ...msg,
+            content: accumulatedText,
+          }));
+        } else if (type === 'retrieval_complete') {
+          updateStatusIfAllowed("Retrieving from inventory");
+        } else if (type === 'item') {
+          const productUrl = data.link || "";
+          const newProduct = {
+            index_number: data.metadata?.index_number || (productsMap.size + 1),
+            product_url: productUrl,
+            product_image_url: data.metadata?.image_url || "",
+            brand: data.content || "",
+            product_category: "",
+            product_colour: "",
+            occasions: "",
+            stream: data.metadata?.stream || ""
+          };
+
+          if (productUrl) {
+            if (productsMap.has(productUrl)) {
+              const existing = productsMap.get(productUrl);
+              if (existing.stream && newProduct.stream && existing.stream !== newProduct.stream) {
+                existing.stream = 'both';
+              }
+            } else {
+              productsMap.set(productUrl, newProduct);
+            }
+
+            // Sync with Zustand store
+            const mergedProducts = Array.from(productsMap.values());
+            // Re-index sequentially from 1 to N
+            mergedProducts.forEach((p, idx) => {
+              p.index_number = idx + 1;
+            });
+
+            updateLastMessageInCurrentChat((msg) => ({
+              ...msg,
+              products: mergedProducts,
+            }));
+          }
+        } else if (type === 'generation_complete') {
+          if (data.content) {
+            accumulatedText = data.content;
+            updateLastMessageInCurrentChat((msg) => ({
+              ...msg,
+              content: accumulatedText,
+            }));
+          }
+        }
+      });
+
+      setIsLoading(false);
+      setStatusText('');
     } catch (error) {
       console.error('Failed to send message:', error);
       setIsLoading(false);
