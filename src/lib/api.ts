@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Product } from '@/store/chatStore';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://nonrefractive-lisette-lithely.ngrok-free.dev';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:9090';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -33,10 +33,9 @@ export const chatApi = {
   },
 
   sendMessage: async (message: string, sessionId: string, email?: string): Promise<ChatApiResponse> => {
-    // Call the ABFRL chatbot endpoint
-    const response = await api.post('/abfrl/chat/stream', {
-      query: message,
-      session_id: sessionId
+    const response = await api.post(`/chat/sessions/${sessionId}/messages`, {
+      message,
+      email,
     });
 
     const streamText = response.data as string;
@@ -124,14 +123,13 @@ export const chatApi = {
     sessionId: string,
     onEvent: (event: string, data: any) => void
   ): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/abfrl/chat/stream`, {
+    const response = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        query: message,
-        session_id: sessionId,
+        message,
       }),
     });
 
