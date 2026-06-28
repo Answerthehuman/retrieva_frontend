@@ -11,11 +11,21 @@ export interface Product {
   stream?: string;
 }
 
+export interface Source {
+  id: string;
+  title: string;
+  fileType: 'pdf' | 'docx' | 'txt' | 'md' | 'csv' | 'xlsx' | 'pptx';
+  pageNumber: number;
+  relevanceScore: number;
+  snippet?: string;
+}
+
 export interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
   products?: Product[];
+  sources?: Source[];
 }
 
 export interface Chat {
@@ -34,6 +44,12 @@ interface ChatState {
   isSidebarOpen: boolean;
   isAuthenticated: boolean;
   user: { username: string } | null;
+  
+  // New sliding sidebar and active context selector states
+  isRightSidebarOpen: boolean;
+  rightSidebarTab: 'sources' | 'chunks' | 'details';
+  activeSourceId: string | null;
+  activeContextCollections: string[];
 
   createNewChat: () => string;
   selectChat: (id: string) => void;
@@ -48,6 +64,13 @@ interface ChatState {
   toggleSidebar: () => void;
   login: (username: string, password: string) => boolean;
   logout: () => void;
+  
+  // New action functions
+  setRightSidebarOpen: (open: boolean) => void;
+  setRightSidebarTab: (tab: 'sources' | 'chunks' | 'details') => void;
+  setActiveSourceId: (id: string | null) => void;
+  setActiveContextCollections: (collections: string[]) => void;
+  toggleActiveContextCollection: (collection: string) => void;
 }
 
 const STORAGE_KEY = 'chat-auth-state';
@@ -69,7 +92,12 @@ export const useChatStore = create<ChatState>((set, get) => {
     isLoading: false,
     statusText: '',
     isSidebarOpen: true,
+    isRightSidebarOpen: false,
+    rightSidebarTab: 'sources',
+    activeSourceId: null,
+    activeContextCollections: ['Marketing', 'Engineering', 'HR'],
     ...initialAuth,
+
 
     createNewChat: () => {
       const { chats } = get();
@@ -179,6 +207,21 @@ export const useChatStore = create<ChatState>((set, get) => {
       set(authData);
       localStorage.removeItem(STORAGE_KEY);
     },
+
+    setRightSidebarOpen: (open) => set({ isRightSidebarOpen: open }),
+    setRightSidebarTab: (tab) => set({ rightSidebarTab: tab }),
+    setActiveSourceId: (id) => set({ activeSourceId: id }),
+    setActiveContextCollections: (collections) => set({ activeContextCollections: collections }),
+    toggleActiveContextCollection: (collection) => set((state) => {
+      const next = [...state.activeContextCollections];
+      const idx = next.indexOf(collection);
+      if (idx > -1) {
+        next.splice(idx, 1);
+      } else {
+        next.push(collection);
+      }
+      return { activeContextCollections: next };
+    }),
   };
 });
 

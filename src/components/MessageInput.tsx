@@ -1,5 +1,5 @@
-import { useState, KeyboardEvent } from 'react';
-import { Send, Mic, MicOff, Loader2 } from 'lucide-react';
+import { useState, KeyboardEvent, useRef } from 'react';
+import { Send, Mic, MicOff, Loader2, Paperclip, X, File, FileText, FileSpreadsheet, Presentation } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
@@ -11,11 +11,18 @@ import { cn } from '@/lib/utils';
 
 interface MessageInputProps {
   isLanding?: boolean;
+  onDocumentsSelected?: (files: File[]) => void;
 }
 
-export const MessageInput = ({ isLanding }: MessageInputProps) => {
+const ACCEPTED_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md', '.csv', '.xlsx', '.pptx'];
+
+export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputProps) => {
   const [input, setInput] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const { 
     addMessageToCurrentChat, 
     setIsLoading, 
@@ -28,8 +35,101 @@ export const MessageInput = ({ isLanding }: MessageInputProps) => {
   const { toast } = useToast();
   const { isRecording, startRecording, stopRecording } = useAudioRecorder();
 
+  const isAcceptedType = (file: File) => {
+    const name = file.name.toLowerCase();
+    return ACCEPTED_EXTENSIONS.some(ext => name.endsWith(ext));
+  };
+
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'pdf': return <File className="h-4 w-4 text-red-500" />;
+      case 'xlsx':
+      case 'xls':
+      case 'csv': return <FileSpreadsheet className="h-4 w-4 text-green-500" />;
+      case 'docx':
+      case 'doc': return <FileText className="h-4 w-4 text-blue-500" />;
+      case 'pptx':
+      case 'ppt': return <Presentation className="h-4 w-4 text-orange-500" />;
+      case 'md':
+      case 'txt': return <FileText className="h-4 w-4 text-slate-500" />;
+      default: return <File className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      const validFiles = droppedFiles.filter(isAcceptedType);
+      
+      if (validFiles.length > 0) {
+        const nextFiles = [...files, ...validFiles];
+        setFiles(nextFiles);
+        if (onDocumentsSelected) {
+          onDocumentsSelected(validFiles);
+        }
+      } else {
+        toast({
+          title: "Invalid file type",
+          description: "Accepted formats: PDF, DOCX, TXT, MD, CSV, XLSX, PPTX.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleFileSelectClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const selected = Array.from(e.target.files);
+      const validFiles = selected.filter(isAcceptedType);
+      
+      if (validFiles.length > 0) {
+        const nextFiles = [...files, ...validFiles];
+        setFiles(nextFiles);
+        if (onDocumentsSelected) {
+          onDocumentsSelected(validFiles);
+        }
+      } else {
+        toast({
+          title: "Invalid file type",
+          description: "Accepted formats: PDF, DOCX, TXT, MD, CSV, XLSX, PPTX.",
+          variant: "destructive"
+        });
+      }
+      e.target.value = '';
+    }
+  };
+
+  const removeFile = (index: number) => {
+    const updated = [...files];
+    updated.splice(index, 1);
+    setFiles(updated);
+  };
+
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && files.length === 0) || isLoading) return;
 
     let chat = getCurrentChat();
     if (!chat) {
@@ -40,12 +140,29 @@ export const MessageInput = ({ isLanding }: MessageInputProps) => {
 
     const userMessage = {
       role: 'user' as const,
-      content: input.trim(),
+      content: input.trim() || `Uploaded ${files.length} document(s).`,
       timestamp: new Date().toISOString(),
     };
 
+    // Prepare mock sources if files are selected, or general fallback mock sources
+    const mockSources = files.length > 0 
+      ? files.map((f, idx) => ({
+          id: `src-${idx}-${crypto.randomUUID().slice(0, 4)}`,
+          title: f.name,
+          fileType: (f.name.split('.').pop()?.toLowerCase() as any) || 'pdf',
+          pageNumber: Math.floor(Math.random() * 8) + 1,
+          relevanceScore: Math.floor(Math.random() * 15) + 82
+        }))
+      : [
+          { id: 'src-1', title: 'Marketing Strategy 2026.pdf', fileType: 'pdf' as const, pageNumber: 3, relevanceScore: 92 },
+          { id: 'src-2', title: 'Sales Handbook.docx', fileType: 'docx' as const, pageNumber: 8, relevanceScore: 88 }
+        ];
+
     addMessageToCurrentChat(userMessage);
     setInput('');
+    const currentFiles = [...files];
+    setFiles([]); // Clear chips in UI immediately
+
     setIsLoading(true);
     setStatusText("Assistant is thinking...");
 
@@ -65,6 +182,7 @@ export const MessageInput = ({ isLanding }: MessageInputProps) => {
         content: '',
         timestamp: new Date().toISOString(),
         products: [],
+        sources: [],
       };
       addMessageToCurrentChat(initialAssistantMessage);
 
@@ -141,9 +259,7 @@ export const MessageInput = ({ isLanding }: MessageInputProps) => {
               productsMap.set(productUrl, newProduct);
             }
 
-            // Sync with Zustand store
             const mergedProducts = Array.from(productsMap.values());
-            // Re-index sequentially from 1 to N
             mergedProducts.forEach((p, idx) => {
               p.index_number = idx + 1;
             });
@@ -156,11 +272,13 @@ export const MessageInput = ({ isLanding }: MessageInputProps) => {
         } else if (type === 'generation_complete') {
           if (data.content) {
             accumulatedText = data.content;
-            updateLastMessageInCurrentChat((msg) => ({
-              ...msg,
-              content: accumulatedText,
-            }));
           }
+          // Attach mock sources on generation complete
+          updateLastMessageInCurrentChat((msg) => ({
+            ...msg,
+            content: accumulatedText,
+            sources: mockSources
+          }));
         }
       });
 
@@ -194,20 +312,15 @@ export const MessageInput = ({ isLanding }: MessageInputProps) => {
           apiSubscriptionKey: import.meta.env.VITE_SARVAM_API_KEY || ''
         });
 
-        // Sanitize mime type: Sarvam API expects 'audio/webm', not 'audio/webm;codecs=opus'
         const mimeType = audioBlob.type.split(';')[0];
         const extension = mimeType.split('/')[1] || 'webm';
         const file = new File([audioBlob], `audio.${extension}`, { type: mimeType });
-
-        console.log('Starting transcription with sanitized file:', file.name, 'size:', file.size, 'type:', file.type);
 
         const response = await sarvam.speechToText.transcribe({
           file: file,
           model: 'saaras:v3',
           language_code: 'unknown'
         });
-
-        console.log('Transcription response:', response);
 
         if (response.transcript) {
           setInput(prev => prev + (prev ? ' ' : '') + response.transcript);
@@ -222,7 +335,6 @@ export const MessageInput = ({ isLanding }: MessageInputProps) => {
       } catch (error: any) {
         console.error('Transcription failed details:', error);
         
-        // Try to extract more info from the error
         let errorDesc = 'Could not convert speech to text. Please check your API key and internet connection.';
         if (error.message) errorDesc = error.message;
         if (error.body) {
@@ -254,7 +366,6 @@ export const MessageInput = ({ isLanding }: MessageInputProps) => {
     }
   };
 
-
   return (
     <div className={cn(
       "w-full transition-all duration-500",
@@ -264,60 +375,111 @@ export const MessageInput = ({ isLanding }: MessageInputProps) => {
         "max-w-3xl mx-auto px-4 py-4",
         isLanding ? "max-w-2xl px-0" : ""
       )}>
-        <div className={cn(
-          "flex gap-3 items-end p-2 transition-all duration-300",
-          "bg-background border rounded-[26px] shadow-sm ring-1 ring-border focus-within:ring-primary/20 focus-within:border-primary/30",
-          isLanding && "shadow-2xl shadow-primary/5"
-        )}>
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={isLanding ? "How can I help you today?" : "Type your message..."}
-            disabled={isLoading || isTranscribing}
-            className={cn(
-              "min-h-[56px] max-h-[200px] resize-none border-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent py-4 text-lg ml-2",
-              !isLanding && "text-base py-3 h-14"
-            )}
-            rows={1}
-          />
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          multiple
+          accept=".pdf,.docx,.txt,.md,.csv,.xlsx,.pptx"
+          className="hidden"
+        />
 
-          <div className="flex items-center gap-2 pb-1.5 pr-1.5">
+        <div 
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={cn(
+            "flex flex-col gap-2 p-2.5 transition-all duration-300",
+            "bg-background border rounded-[24px] shadow-sm ring-1 ring-border focus-within:ring-primary/20 focus-within:border-primary/30",
+            isDragging && "border-primary ring-2 ring-primary/25 bg-primary/5 scale-[1.01]",
+            isLanding && "shadow-2xl shadow-primary/5"
+          )}
+        >
+          {/* File chips row */}
+          {files.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-2 pt-1 border-b border-border/50 pb-2">
+              {files.map((file, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-accent text-accent-foreground text-xs rounded-full border border-border shadow-2xs hover:bg-accent/80 transition-all animate-in zoom-in-95 duration-150"
+                >
+                  {getFileIcon(file.name)}
+                  <span className="max-w-[150px] truncate font-medium">{file.name}</span>
+                  <button
+                    onClick={() => removeFile(idx)}
+                    type="button"
+                    className="ml-1 text-muted-foreground hover:text-foreground hover:bg-muted p-0.5 rounded-full transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Input elements row */}
+          <div className="flex items-end gap-2 w-full">
             <Button
-              onClick={handleMicClick}
-              variant={isRecording ? 'destructive' : 'ghost'}
+              type="button"
+              variant="ghost"
               size="icon"
-              disabled={isTranscribing || isLoading}
-              className={cn(
-                "h-11 w-11 shrink-0 rounded-full transition-all",
-                isRecording ? "animate-pulse" : "hover:bg-muted"
-              )}
-              title={isRecording ? 'Stop listening' : 'Start speech-to-text'}
+              onClick={handleFileSelectClick}
+              disabled={isLoading || isTranscribing}
+              className="h-11 w-11 shrink-0 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              title="Add documents"
             >
-              {isTranscribing ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : isRecording ? (
-                <MicOff className="h-5 w-5" />
-              ) : (
-                <Mic className="h-5 w-5" />
-              )}
+              <Paperclip className="h-5 w-5" />
             </Button>
-            <Button
-              onClick={handleSend}
-              disabled={!input.trim() || isLoading || isTranscribing}
-              size="icon"
+
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={isLanding ? "How can I help you today?" : "Type your message..."}
+              disabled={isLoading || isTranscribing}
               className={cn(
-                "h-11 w-11 shrink-0 rounded-full transition-all",
-                (!input.trim() || isLoading) ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground shadow-sm hover:scale-105 active:scale-95"
+                "min-h-[56px] max-h-[200px] resize-none border-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent py-4 text-lg ml-0 flex-1",
+                !isLanding && "text-base py-3 h-14"
               )}
-            >
-              <Send className="h-5 w-5" />
-            </Button>
+              rows={1}
+            />
+
+            <div className="flex items-center gap-2 pb-1.5 pr-1.5">
+              <Button
+                onClick={handleMicClick}
+                variant={isRecording ? 'destructive' : 'ghost'}
+                size="icon"
+                disabled={isTranscribing || isLoading}
+                className={cn(
+                  "h-11 w-11 shrink-0 rounded-full transition-all",
+                  isRecording ? "animate-pulse" : "hover:bg-muted"
+                )}
+                title={isRecording ? 'Stop listening' : 'Start speech-to-text'}
+              >
+                {isTranscribing ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : isRecording ? (
+                  <MicOff className="h-5 w-5" />
+                ) : (
+                  <Mic className="h-5 w-5" />
+                )}
+              </Button>
+              <Button
+                onClick={handleSend}
+                disabled={(!input.trim() && files.length === 0) || isLoading || isTranscribing}
+                size="icon"
+                className={cn(
+                  "h-11 w-11 shrink-0 rounded-full transition-all",
+                  ((!input.trim() && files.length === 0) || isLoading) ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground shadow-sm hover:scale-105 active:scale-95"
+                )}
+              >
+                <Send className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 };
-
-

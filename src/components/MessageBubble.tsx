@@ -1,6 +1,8 @@
 import { Message } from '@/store/chatStore';
+import { SourcesUsed } from './SourcesUsed';
 import { User, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
 
 interface MessageBubbleProps {
   message: Message;
@@ -84,6 +86,9 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
           ) : (
             <div className="space-y-1">
               {renderContent(message.content)}
+              {message.sources && message.sources.length > 0 && (
+                <SourcesUsed sources={message.sources} />
+              )}
             </div>
           )}
         </div>
