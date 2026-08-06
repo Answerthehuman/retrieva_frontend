@@ -5,7 +5,8 @@ import { Send, Mic, MicOff, Loader2, Paperclip, X, File as FileIcon, FileText, F
 import { useChatStore } from '@/store/chatStore';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { chatApi } from '@/lib/api';
+import { chatApi, toSource, type RetrievedDocument } from '@/lib/api';
+import type { Source } from '@/store/chatStore';
 import { useToast } from '@/hooks/use-toast';
 import { SarvamAIClient } from 'sarvamai';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
@@ -36,6 +37,7 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
     createNewChat,
     draftInput,
     setDraftInput,
+    activeCollection,
   } = useChatStore();
 
   // Homepage action cards / quick-access tiles seed the composer through the
@@ -162,20 +164,6 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
       timestamp: new Date().toISOString(),
     };
 
-    // Prepare mock sources if files are selected, or general fallback mock sources
-    const mockSources = files.length > 0 
-      ? files.map((f, idx) => ({
-          id: `src-${idx}-${crypto.randomUUID().slice(0, 4)}`,
-          title: f.name,
-          fileType: (f.name.split('.').pop()?.toLowerCase() as any) || 'pdf',
-          pageNumber: Math.floor(Math.random() * 8) + 1,
-          relevanceScore: Math.floor(Math.random() * 15) + 82
-        }))
-      : [
-          { id: 'src-1', title: 'Marketing Strategy 2026.pdf', fileType: 'pdf' as const, pageNumber: 3, relevanceScore: 92 },
-          { id: 'src-2', title: 'Sales Handbook.docx', fileType: 'docx' as const, pageNumber: 8, relevanceScore: 88 }
-        ];
-
     addMessageToCurrentChat(userMessage);
     setInput('');
     const currentFiles = [...files];
@@ -204,110 +192,88 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
       };
       addMessageToCurrentChat(initialAssistantMessage);
 
-      const productsMap = new Map<string, any>();
       let accumulatedText = "";
+      // Documents the backend actually retrieved, accumulated across every
+      // search the agent runs this turn. These are the real citations.
+      const retrieved = new Map<string, Source>();
+      let streamFailed: string | null = null;
 
-      const mapStatusToStage = (status: string): string => {
-        const lower = status.toLowerCase();
-        if (lower.includes("checking trends") || lower.includes("checking latest fashion")) {
-          return "Checking trends";
-        }
-        if (lower.includes("retrieving inventory") || lower.includes("retrieving from inventory") || lower.includes("retrieving matching products")) {
-          return "Retrieving from inventory";
-        }
-        if (lower.includes("reranking") || lower.includes("rerank")) {
-          return "Reranking chunks";
-        }
-        return status;
-      };
-
-      const updateStatusIfAllowed = (rawStatus: string) => {
-        const mappedStatus = mapStatusToStage(rawStatus);
-        const STATUS_WEIGHTS: Record<string, number> = {
-          "": 0,
-          "Assistant is thinking...": 0,
-          "Checking trends": 1,
-          "Retrieving from inventory": 2,
-          "Reranking chunks": 3
-        };
-        const currentStatus = useChatStore.getState().statusText;
-        const currentWeight = STATUS_WEIGHTS[currentStatus] || 0;
-        const newWeight = STATUS_WEIGHTS[mappedStatus] || 0;
-        if (newWeight >= currentWeight) {
-          setStatusText(mappedStatus);
-        }
-      };
-
-      await chatApi.sendMessageStream(userMessage.content, sessionId, (type, data) => {
-        if (type === 'retrieval_start') {
-          updateStatusIfAllowed("Checking trends");
-        } else if (type === 'status') {
-          updateStatusIfAllowed(data.content || "Processing...");
-        } else if (type === 'generation_start') {
-          updateStatusIfAllowed("Checking trends");
-        } else if (type === 'text' || type === 'token' || type === 'markdown') {
-          const token = data.content || '';
-          accumulatedText += token;
-          updateLastMessageInCurrentChat((msg) => ({
-            ...msg,
-            content: accumulatedText,
-          }));
-        } else if (type === 'retrieval_complete') {
-          updateStatusIfAllowed("Retrieving from inventory");
-        } else if (type === 'item') {
-          const productUrl = data.link || "";
-          const newProduct = {
-            index_number: data.metadata?.index_number || (productsMap.size + 1),
-            product_url: productUrl,
-            product_image_url: data.metadata?.image_url || "",
-            brand: data.content || "",
-            product_category: "",
-            product_colour: "",
-            occasions: "",
-            stream: data.metadata?.stream || ""
-          };
-
-          if (productUrl) {
-            if (productsMap.has(productUrl)) {
-              const existing = productsMap.get(productUrl);
-              if (existing.stream && newProduct.stream && existing.stream !== newProduct.stream) {
-                existing.stream = 'both';
+      await chatApi.sendMessageStream(
+        userMessage.content,
+        sessionId,
+        (type, data) => {
+          if (type === 'retrieval_start') {
+            setStatusText(
+              data.query ? `Searching for "${data.query}"…` : 'Searching your knowledge base…'
+            );
+          } else if (type === 'retrieval_complete') {
+            const docs: RetrievedDocument[] = data.documents || [];
+            docs.forEach((doc, idx) => {
+              const source = toSource(doc, retrieved.size + idx);
+              // Keep the highest-scoring hit per document id.
+              const existing = retrieved.get(source.id);
+              if (!existing || source.relevanceScore > existing.relevanceScore) {
+                retrieved.set(source.id, source);
               }
-            } else {
-              productsMap.set(productUrl, newProduct);
-            }
-
-            const mergedProducts = Array.from(productsMap.values());
-            mergedProducts.forEach((p, idx) => {
-              p.index_number = idx + 1;
             });
-
+            setStatusText(
+              docs.length
+                ? `Reading ${docs.length} passage${docs.length === 1 ? '' : 's'}…`
+                : 'No matching passages found…'
+            );
+          } else if (type === 'generation_start') {
+            setStatusText('Writing an answer…');
+          } else if (type === 'text' || type === 'token' || type === 'markdown') {
+            accumulatedText += data.content || '';
             updateLastMessageInCurrentChat((msg) => ({
               ...msg,
-              products: mergedProducts,
+              content: accumulatedText,
             }));
+          } else if (type === 'generation_complete') {
+            updateLastMessageInCurrentChat((msg) => ({
+              ...msg,
+              content: accumulatedText,
+              sources: Array.from(retrieved.values()).sort(
+                (a, b) => b.relevanceScore - a.relevanceScore
+              ),
+            }));
+          } else if (type === 'error') {
+            streamFailed = data.message || 'The assistant hit an error.';
           }
-        } else if (type === 'generation_complete') {
-          if (data.content) {
-            accumulatedText = data.content;
-          }
-          // Attach mock sources on generation complete
-          updateLastMessageInCurrentChat((msg) => ({
-            ...msg,
-            content: accumulatedText,
-            sources: mockSources
-          }));
-        }
-      });
+        },
+        { collectionName: activeCollection }
+      );
 
       setIsLoading(false);
       setStatusText('');
-    } catch (error) {
+
+      if (streamFailed) {
+        updateLastMessageInCurrentChat((msg) => ({
+          ...msg,
+          content: msg.content || `⚠️ ${streamFailed}`,
+        }));
+        toast({
+          title: 'Assistant error',
+          description: streamFailed,
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
       console.error('Failed to send message:', error);
       setIsLoading(false);
+      setStatusText('');
+      const description =
+        error?.message === 'Failed to fetch'
+          ? 'Could not reach the Retrieva backend. Is it running?'
+          : error?.message || 'Failed to send message. Please try again.';
+      // Surface the failure in the transcript rather than leaving a blank bubble.
+      updateLastMessageInCurrentChat((msg) => ({
+        ...msg,
+        content: msg.content || `⚠️ ${description}`,
+      }));
       toast({
         title: 'Error',
-        description: 'Failed to send message. Please try again.',
+        description,
         variant: 'destructive',
       });
     }

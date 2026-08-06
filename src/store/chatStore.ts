@@ -49,7 +49,10 @@ interface ChatState {
   isRightSidebarOpen: boolean;
   rightSidebarTab: 'sources' | 'chunks' | 'details';
   activeSourceId: string | null;
-  activeContextCollections: string[];
+  /** Milvus collections reported by the backend's /health check. */
+  availableCollections: string[];
+  /** Collection the next query is scoped to; null = backend default. */
+  activeCollection: string | null;
 
   createNewChat: () => string;
   selectChat: (id: string) => void;
@@ -72,8 +75,8 @@ interface ChatState {
   setRightSidebarOpen: (open: boolean) => void;
   setRightSidebarTab: (tab: 'sources' | 'chunks' | 'details') => void;
   setActiveSourceId: (id: string | null) => void;
-  setActiveContextCollections: (collections: string[]) => void;
-  toggleActiveContextCollection: (collection: string) => void;
+  setAvailableCollections: (collections: string[]) => void;
+  setActiveCollection: (collection: string | null) => void;
 }
 
 const STORAGE_KEY = 'chat-auth-state';
@@ -99,7 +102,8 @@ export const useChatStore = create<ChatState>((set, get) => {
     isRightSidebarOpen: false,
     rightSidebarTab: 'sources',
     activeSourceId: null,
-    activeContextCollections: ['Marketing', 'Engineering', 'HR'],
+    availableCollections: [],
+    activeCollection: null,
     ...initialAuth,
 
 
@@ -217,17 +221,15 @@ export const useChatStore = create<ChatState>((set, get) => {
     setRightSidebarOpen: (open) => set({ isRightSidebarOpen: open }),
     setRightSidebarTab: (tab) => set({ rightSidebarTab: tab }),
     setActiveSourceId: (id) => set({ activeSourceId: id }),
-    setActiveContextCollections: (collections) => set({ activeContextCollections: collections }),
-    toggleActiveContextCollection: (collection) => set((state) => {
-      const next = [...state.activeContextCollections];
-      const idx = next.indexOf(collection);
-      if (idx > -1) {
-        next.splice(idx, 1);
-      } else {
-        next.push(collection);
-      }
-      return { activeContextCollections: next };
-    }),
+    setAvailableCollections: (collections) => set((state) => ({
+      availableCollections: collections,
+      // Drop a selection that no longer exists server-side.
+      activeCollection:
+        state.activeCollection && collections.includes(state.activeCollection)
+          ? state.activeCollection
+          : null,
+    })),
+    setActiveCollection: (collection) => set({ activeCollection: collection }),
   };
 });
 

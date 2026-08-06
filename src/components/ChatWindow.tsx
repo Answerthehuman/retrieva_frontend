@@ -17,6 +17,8 @@ import { Button } from './ui/button';
 import { ModeToggle } from './ModeToggle';
 import { ActionCards } from './home/ActionCards';
 import { QuickAccess } from './home/QuickAccess';
+import { useBackendHealth } from '@/hooks/use-backend-health';
+import { BackendStatusBadge } from './BackendStatusBadge';
 
 const USER_FIRST_NAME = 'John';
 
@@ -33,9 +35,12 @@ export const ChatWindow = () => {
     isLoading,
     logout,
     statusText,
-    activeContextCollections,
-    toggleActiveContextCollection
+    availableCollections,
+    activeCollection,
+    setActiveCollection,
   } = useChatStore();
+
+  const { status: backendStatus, health } = useBackendHealth();
 
   const chat = getCurrentChat();
   const messages = chat?.messages || [];
@@ -93,21 +98,9 @@ export const ChatWindow = () => {
             </span>
 
             <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
-              {activeContextCollections.map((col) => (
-                <span
-                  key={col}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full font-medium border border-primary/20 shadow-2xs text-[11px] animate-in zoom-in-95 duration-150"
-                >
-                  {col}
-                  <button
-                    onClick={() => toggleActiveContextCollection(col)}
-                    aria-label={`Remove ${col} from active context`}
-                    className="hover:bg-primary/20 p-0.5 rounded-full text-primary transition-all cursor-pointer"
-                  >
-                    <X className="h-2.5 w-2.5" />
-                  </button>
-                </span>
-              ))}
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full font-medium border border-primary/20 shadow-2xs text-[11px]">
+                {activeCollection ?? health?.config?.collection ?? 'default collection'}
+              </span>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -115,30 +108,37 @@ export const ChatWindow = () => {
                     variant="outline"
                     size="sm"
                     className="h-7 px-2.5 rounded-full border-dashed gap-1 text-[11px] font-medium"
+                    disabled={availableCollections.length === 0}
                   >
-                    <Plus className="h-3 w-3" /> Add / Change
+                    <Plus className="h-3 w-3" /> Change
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48 mt-1">
+                <DropdownMenuContent align="start" className="w-56 mt-1">
                   <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase">
-                    Toggle Active Collections
+                    Milvus Collections
                   </DropdownMenuLabel>
-                  {['Marketing', 'Engineering', 'HR', 'Finance', 'Product'].map((col) => {
-                    const isChecked = activeContextCollections.includes(col);
-                    return (
-                      <DropdownMenuItem
-                        key={col}
-                        onClick={() => toggleActiveContextCollection(col)}
-                        className="flex items-center justify-between cursor-pointer text-xs"
-                      >
-                        <span>{col}</span>
-                        {isChecked && <Check className="h-3.5 w-3.5 text-primary" />}
-                      </DropdownMenuItem>
-                    );
-                  })}
+                  <DropdownMenuItem
+                    onClick={() => setActiveCollection(null)}
+                    className="flex items-center justify-between cursor-pointer text-xs"
+                  >
+                    <span>Server default</span>
+                    {activeCollection === null && <Check className="h-3.5 w-3.5 text-primary" />}
+                  </DropdownMenuItem>
+                  {availableCollections.map((col) => (
+                    <DropdownMenuItem
+                      key={col}
+                      onClick={() => setActiveCollection(col)}
+                      className="flex items-center justify-between cursor-pointer text-xs"
+                    >
+                      <span className="truncate">{col}</span>
+                      {activeCollection === col && <Check className="h-3.5 w-3.5 text-primary" />}
+                    </DropdownMenuItem>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+
+            <BackendStatusBadge status={backendStatus} health={health} className="shrink-0" />
           </div>
         </div>
       )}

@@ -6,6 +6,7 @@ import { X, Upload, File, FileText, FileSpreadsheet, Presentation, AlertCircle }
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { knowledgeApi } from '@/lib/api';
+import { useBackendHealth } from '@/hooks/use-backend-health';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -22,8 +23,14 @@ interface QueueItem {
 }
 
 export const UploadModal = ({ isOpen, onClose, onFilesSelected }: UploadModalProps) => {
-  const { addDocument } = useKnowledgeStore();
+  const { addDocument, collectionFilter } = useKnowledgeStore();
+  const { health } = useBackendHealth();
+  // Report the embedding model the backend actually uses, not a hardcoded one.
+  const embeddingModel = health?.config.embedding_model ?? 'unknown';
   const { toast } = useToast();
+
+  // 'all' means "no specific collection" — let the backend use its default.
+  const targetCollection = collectionFilter && collectionFilter !== 'all' ? collectionFilter : undefined;
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -143,20 +150,30 @@ export const UploadModal = ({ isOpen, onClose, onFilesSelected }: UploadModalPro
     for (const item of queue) {
       const ext = (item.file.name.split('.').pop()?.toLowerCase() as DocType) || 'pdf';
       try {
-        const stats = await knowledgeApi.uploadDocument(item.file);
+        // Ingest into the collection currently being viewed, when one is
+        // selected — the backend accepts collection_name on /ingest/upload.
+        const stats = await knowledgeApi.uploadDocument(item.file, targetCollection);
 
         addDocument({
           name: stats.file_name || item.file.name,
           collection: stats.collection_name || 'General',
           type: ext,
-          status: 'Indexed',
+          status: stats.inserted > 0 ? 'Indexed' : 'Failed',
           chunksCount: stats.inserted,
           sizeBytes: item.file.size,
           owner: 'John Doe',
           language: 'English',
           pagesCount: 1,
-          embeddingModel: 'models/gemini-embedding-2',
+          embeddingModel,
         });
+
+        if (stats.inserted === 0) {
+          toast({
+            title: `No text extracted: ${item.file.name}`,
+            description: 'The file was accepted but produced no indexable content.',
+            variant: 'destructive',
+          });
+        }
         successCount++;
       } catch (err: any) {
         toast({
@@ -176,7 +193,7 @@ export const UploadModal = ({ isOpen, onClose, onFilesSelected }: UploadModalPro
           owner: 'John Doe',
           language: 'English',
           pagesCount: 0,
-          embeddingModel: 'models/gemini-embedding-2',
+          embeddingModel,
         });
       }
     }

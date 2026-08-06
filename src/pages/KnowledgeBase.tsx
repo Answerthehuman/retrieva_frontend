@@ -108,8 +108,14 @@ export default function KnowledgeBase() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Dynamic UI State Selector (Demo tool) */}
-            <div className="hidden sm:flex border border-border/80 bg-muted/30 rounded-lg p-0.5 text-[10px] items-center mr-2">
+            {/* Dynamic UI State Selector (Demo tool) — dev-only, never shipped
+                to a production build. */}
+            <div
+              className={cn(
+                'hidden border border-border/80 bg-muted/30 rounded-lg p-0.5 text-[10px] items-center mr-2',
+                import.meta.env.DEV && 'sm:flex'
+              )}
+            >
               <span className="px-2 text-muted-foreground font-semibold uppercase tracking-wider">Demo States:</span>
               <button
                 onClick={() => setPageState('content')}
@@ -239,6 +245,19 @@ export default function KnowledgeBase() {
 
           {pageState === 'content' && (
             <div className="space-y-6 animate-in fade-in duration-300">
+              {/* The backend exposes ingestion (POST /ingest/upload) but no
+                  document listing/CRUD API, so everything below except upload
+                  is local sample data. Saying so beats implying it is live. */}
+              <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                <AlertOctagon className="h-4 w-4 shrink-0 mt-px" aria-hidden="true" />
+                <p className="leading-relaxed">
+                  <strong className="font-semibold">Sample data.</strong> Uploads are ingested into
+                  the real backend, but this table, its counts and its actions are local placeholders —
+                  the backend has no document-listing API yet, so nothing here is fetched or persisted
+                  server-side.
+                </p>
+              </div>
+
               {/* Analytics metrics */}
               <KnowledgeStats />
 

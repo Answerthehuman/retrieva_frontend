@@ -13,9 +13,30 @@ import {
   LogOut,
   Lock,
   CheckCircle,
+  AlertCircle,
   HelpCircle
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useBackendHealth } from '@/hooks/use-backend-health';
+import { cn } from '@/lib/utils';
+
+const StatusRow = ({ label, ok, value }: { label: string; ok?: boolean; value: string }) => (
+  <div className="flex items-center justify-between gap-3">
+    <span className="text-muted-foreground">{label}</span>
+    <span
+      className={cn(
+        'font-semibold flex items-center gap-1 text-right',
+        ok ? 'text-emerald-600 dark:text-emerald-500' : 'text-amber-600 dark:text-amber-500'
+      )}
+    >
+      {ok ? (
+        <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+      ) : (
+        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+      )}
+      <span className="font-mono font-normal">{value}</span>
+    </span>
+  </div>
+);
 
 export default function SettingsPage() {
   const {
@@ -23,14 +44,8 @@ export default function SettingsPage() {
     logout
   } = useChatStore();
 
-  const { toast } = useToast();
-
-  const handleSave = () => {
-    toast({
-      title: "Settings saved",
-      description: "Local configuration changes have been updated successfully.",
-    });
-  };
+  const { status, health, error, refresh } = useBackendHealth();
+  const loading = status === 'checking';
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
@@ -85,83 +100,148 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* RAG Settings Card */}
+          {/* Model + retrieval configuration, read live from the backend.
+              These are server-side settings (env-driven); there is no write
+              endpoint, so they are presented read-only rather than as inputs
+              that silently discard changes. */}
           <div className="bg-card border border-border p-4 rounded-xl shadow-2xs space-y-4">
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border pb-2">
               <Cpu className="h-4.5 w-4.5 text-primary" /> Model Settings
+              <span className="ml-auto text-[10px] font-medium text-muted-foreground">
+                live from backend
+              </span>
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 text-xs">
                 <label className="font-semibold text-muted-foreground">LLM Generation Model</label>
-                <Input value="Gemini 1.5 Pro" disabled className="bg-muted/30 border-border text-foreground" />
-                <p className="text-[10px] text-muted-foreground">Primary model for contextual retail answer synthesis.</p>
+                <Input
+                  value={health?.checks.llm.model ?? (loading ? 'Loading…' : 'Unavailable')}
+                  readOnly
+                  className="bg-muted/30 border-border text-foreground font-mono"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Provider: {health?.checks.llm.provider ?? '—'}
+                  {health?.checks.llm.status === 'unconfigured' && ' • no API key set'}
+                </p>
               </div>
 
               <div className="space-y-1.5 text-xs">
-                <label className="font-semibold text-muted-foreground">Embedding Representation Model</label>
-                <Input value="text-embedding-3-small" disabled className="bg-muted/30 border-border text-foreground" />
-                <p className="text-[10px] text-muted-foreground">Used during document chunking & vector search.</p>
+                <label className="font-semibold text-muted-foreground">Embedding Model</label>
+                <Input
+                  value={health?.config.embedding_model ?? (loading ? 'Loading…' : 'Unavailable')}
+                  readOnly
+                  className="bg-muted/30 border-border text-foreground font-mono"
+                />
+                <p className="text-[10px] text-muted-foreground">Used during chunking &amp; vector search.</p>
               </div>
             </div>
           </div>
 
-          {/* Retrieval Preferences Card */}
           <div className="bg-card border border-border p-4 rounded-xl shadow-2xs space-y-4">
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border pb-2">
               <Database className="h-4.5 w-4.5 text-primary" /> Retrieval Configuration
+              <span className="ml-auto text-[10px] font-medium text-muted-foreground">read-only</span>
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="font-semibold text-muted-foreground">Top-K Chunks Retrieved</label>
-                <Input type="number" defaultValue="5" className="border-border text-foreground" />
-                <p className="text-[10px] text-muted-foreground">Number of chunks fed to LLM context window.</p>
-              </div>
-              <div className="space-y-1.5">
-                <label className="font-semibold text-muted-foreground">Hybrid Search Alpha</label>
-                <Input type="number" step="0.1" defaultValue="0.5" className="border-border text-foreground" />
-                <p className="text-[10px] text-muted-foreground">0 = keyword search, 1.0 = purely semantic search.</p>
-              </div>
-              <div className="space-y-1.5">
-                <label className="font-semibold text-muted-foreground">Similarity Threshold (%)</label>
-                <Input type="number" defaultValue="75" className="border-border text-foreground" />
-                <p className="text-[10px] text-muted-foreground">Minimum score for context citation inclusion.</p>
-              </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              {[
+                { label: 'Retrieval Top-K', value: health?.config.retrieval_top_k, hint: 'Candidates pulled from Milvus.' },
+                { label: 'Rerank Top-K', value: health?.config.rerank_top_k, hint: health?.config.rerank_enabled ? 'Reranking enabled.' : 'Reranking disabled.' },
+                { label: 'Chunk Size', value: health?.config.chunk_size, hint: 'Characters per chunk.' },
+                { label: 'Chunk Overlap', value: health?.config.chunk_overlap, hint: 'Characters shared between chunks.' },
+              ].map(({ label, value, hint }) => (
+                <div key={label} className="space-y-1.5">
+                  <label className="font-semibold text-muted-foreground">{label}</label>
+                  <Input
+                    value={value ?? (loading ? '…' : '—')}
+                    readOnly
+                    className="bg-muted/30 border-border text-foreground font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground">{hint}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <span className="text-[11px] font-medium px-2 py-1 rounded-full border border-border bg-muted/20">
+                Hybrid search: {health ? (health.config.hybrid_search ? 'on' : 'off') : '—'}
+              </span>
+              <span className="text-[11px] font-medium px-2 py-1 rounded-full border border-border bg-muted/20">
+                Reranking: {health ? (health.config.rerank_enabled ? 'on' : 'off') : '—'}
+              </span>
+              <span className="text-[11px] font-medium px-2 py-1 rounded-full border border-border bg-muted/20">
+                Default collection: {health?.config.collection ?? '—'}
+              </span>
             </div>
           </div>
 
-          {/* System Info Security */}
+          {/* System Info */}
           <div className="bg-card border border-border p-4 rounded-xl shadow-2xs space-y-4 text-xs">
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border pb-2">
-              <Lock className="h-4.5 w-4.5 text-primary" /> System Info & Security
+              <Lock className="h-4.5 w-4.5 text-primary" /> System Status
+              <button
+                onClick={refresh}
+                className="ml-auto text-[11px] font-semibold text-primary hover:underline"
+              >
+                Refresh
+              </button>
             </h3>
 
             <div className="flex flex-col gap-2 border border-border p-3 rounded-lg bg-muted/10">
+              <StatusRow
+                label="API Connection"
+                ok={status === 'ok' || status === 'degraded'}
+                value={
+                  status === 'checking'
+                    ? 'Checking…'
+                    : status === 'unreachable'
+                    ? error || 'Unreachable'
+                    : `Connected (${health?.status})`
+                }
+              />
+              <StatusRow
+                label="Database"
+                ok={health?.checks.database.status === 'ok'}
+                value={
+                  health
+                    ? `${health.checks.database.engine ?? 'unknown'} — ${health.checks.database.status}`
+                    : '—'
+                }
+              />
+              <StatusRow
+                label="Vector Store"
+                ok={health?.checks.milvus.status === 'ok'}
+                value={
+                  health
+                    ? `${health.checks.milvus.uri ?? 'milvus'} — ${health.checks.milvus.status}`
+                    : '—'
+                }
+              />
+              <StatusRow
+                label="LLM Provider"
+                ok={health?.checks.llm.status === 'ok'}
+                value={
+                  health
+                    ? `${health.checks.llm.provider ?? '—'} — ${health.checks.llm.status}`
+                    : '—'
+                }
+              />
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">API Connection</span>
-                <span className="text-green-500 font-semibold flex items-center gap-1">
-                  <CheckCircle className="h-3.5 w-3.5 fill-green-500 text-background" /> Connected
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Database Engine</span>
-                <span className="font-mono text-muted-foreground">Qdrant Vector Server v1.9.0</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Client Version</span>
-                <span className="font-mono text-muted-foreground">v0.1.0-enterprise</span>
+                <span className="text-muted-foreground">Backend Version</span>
+                <span className="font-mono text-muted-foreground">{health?.version ?? '—'}</span>
               </div>
             </div>
+
+            {health?.checks.llm.status === 'unconfigured' && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-500">
+                No LLM API key is configured on the backend — chat will fail until one is set
+                ({health.checks.llm.provider === 'openai' ? 'OPENAI_API_KEY' : 'GOOGLE_API_KEY'}).
+              </p>
+            )}
           </div>
 
-          {/* Bottom Save bar */}
-          <div className="flex justify-end gap-2 pt-2 pb-6">
-            <Button variant="ghost" className="text-xs h-9 font-semibold">Discard</Button>
-            <Button onClick={handleSave} className="text-xs h-9 font-semibold gap-1">
-              <CheckCircle className="h-3.5 w-3.5" /> Save Changes
-            </Button>
-          </div>
+          <div className="pb-6" />
         </div>
       </main>
     </div>

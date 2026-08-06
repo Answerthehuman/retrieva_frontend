@@ -1,7 +1,57 @@
 import axios from 'axios';
-import { Product } from '@/store/chatStore';
+import { Product, Source } from '@/store/chatStore';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:9090';
+
+/** A document as returned by the backend's `retrieval_complete` SSE event. */
+export interface RetrievedDocument {
+  id?: string;
+  content?: string;
+  source?: string;
+  page?: number | string;
+  document_summary?: string;
+  score?: number;
+  hybrid_score?: number;
+  semantic_score?: number;
+  bm25_score?: number;
+  rerank_score?: number;
+}
+
+const KNOWN_FILE_TYPES: Source['fileType'][] = ['pdf', 'docx', 'txt', 'md', 'csv', 'xlsx', 'pptx'];
+
+const fileTypeOf = (name: string): Source['fileType'] => {
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  return (KNOWN_FILE_TYPES as string[]).includes(ext) ? (ext as Source['fileType']) : 'txt';
+};
+
+/**
+ * Collapse whichever score the backend produced into a 0-100 figure.
+ * Reranker output is an unbounded logit, so it gets squashed; hybrid and
+ * cosine scores are already normalised to roughly 0-1.
+ */
+const relevanceOf = (doc: RetrievedDocument): number => {
+  if (typeof doc.rerank_score === 'number') {
+    return Math.round((1 / (1 + Math.exp(-doc.rerank_score))) * 100);
+  }
+  const raw = doc.hybrid_score ?? doc.score ?? 0;
+  return Math.round(Math.min(Math.max(raw, 0), 1) * 100);
+};
+
+/** Map a backend document onto the Source shape the UI renders. */
+export const toSource = (doc: RetrievedDocument, index: number): Source => {
+  const rawPath = doc.source || 'Unknown source';
+  const title = rawPath.split(/[\\/]/).pop() || rawPath;
+  const page = Number(doc.page);
+
+  return {
+    id: String(doc.id ?? `src-${index}`),
+    title,
+    fileType: fileTypeOf(title),
+    pageNumber: Number.isFinite(page) && page > 0 ? page : 1,
+    relevanceScore: relevanceOf(doc),
+    snippet: doc.content,
+  };
+};
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -22,6 +72,49 @@ export interface SessionResponse {
   session_id: string;
   status: string;
 }
+
+export interface BackendChatMessage {
+  id: number;
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: RetrievedDocument[] | null;
+  created_at: string;
+}
+
+export interface HealthCheck {
+  status: 'ok' | 'error' | 'unconfigured';
+  detail?: string;
+  [key: string]: unknown;
+}
+
+export interface HealthResponse {
+  service: string;
+  status: 'ok' | 'degraded';
+  version: string;
+  checks: {
+    database: HealthCheck & { engine?: string };
+    milvus: HealthCheck & { uri?: string; collections?: string[] };
+    llm: HealthCheck & { provider?: string; model?: string };
+  };
+  config: {
+    embedding_model: string;
+    collection: string;
+    hybrid_search: boolean;
+    rerank_enabled: boolean;
+    retrieval_top_k: number;
+    rerank_top_k: number;
+    chunk_size: number;
+    chunk_overlap: number;
+  };
+}
+
+export const systemApi = {
+  /** Live backend status — powers the Settings panel and connection indicator. */
+  getHealth: async (): Promise<HealthResponse> => {
+    const response = await api.get<HealthResponse>('/health', { timeout: 10000 });
+    return response.data;
+  },
+};
 
 export const chatApi = {
   createSession: async (email?: string, firstQuestion?: string): Promise<SessionResponse> => {
@@ -118,10 +211,17 @@ export const chatApi = {
     };
   },
 
+  /** Full persisted transcript for a session, including real sources per answer. */
+  getMessages: async (sessionId: string): Promise<BackendChatMessage[]> => {
+    const response = await api.get<BackendChatMessage[]>(`/chat/sessions/${sessionId}/messages`);
+    return response.data;
+  },
+
   sendMessageStream: async (
     message: string,
     sessionId: string,
-    onEvent: (event: string, data: any) => void
+    onEvent: (event: string, data: any) => void,
+    options?: { collectionName?: string; filters?: string }
   ): Promise<void> => {
     const response = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/messages`, {
       method: 'POST',
@@ -130,8 +230,21 @@ export const chatApi = {
       },
       body: JSON.stringify({
         message,
+        collection_name: options?.collectionName,
+        filters: options?.filters,
       }),
     });
+
+    if (!response.ok) {
+      let detail = `Request failed (${response.status})`;
+      try {
+        const body = await response.json();
+        detail = body.detail || detail;
+      } catch {
+        /* non-JSON error body */
+      }
+      throw new Error(detail);
+    }
 
     if (!response.body) {
       throw new Error('ReadableStream not supported');
