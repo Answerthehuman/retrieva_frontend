@@ -165,3 +165,42 @@ export const chatApi = {
     }
   },
 };
+
+export interface IngestResponse {
+  collection_name: string;
+  file_name: string;
+  inserted: number;
+  document_summary: string;
+}
+
+export const knowledgeApi = {
+  /**
+   * Upload a file to the backend ingestion pipeline.
+   * Sends a multipart/form-data POST to /ingest/upload.
+   */
+  uploadDocument: async (file: File, collectionName?: string): Promise<IngestResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (collectionName) {
+      formData.append('collection_name', collectionName);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/ingest/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let errorDetail = `Upload failed (${response.status})`;
+      try {
+        const errorBody = await response.json();
+        errorDetail = errorBody.detail || errorDetail;
+      } catch {
+        // Response was not JSON — use status text
+      }
+      throw new Error(errorDetail);
+    }
+
+    return response.json();
+  },
+};

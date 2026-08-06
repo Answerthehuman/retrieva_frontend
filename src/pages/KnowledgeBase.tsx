@@ -31,7 +31,7 @@ import {
   Database,
   LogOut,
   AlertOctagon,
-  RefreshCcw
+  RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
@@ -93,10 +93,10 @@ export default function KnowledgeBase() {
       {/* Main panel layout */}
       <main
         className="flex-1 transition-all duration-300 overflow-y-auto flex flex-col h-screen"
-        style={{ marginLeft: isSidebarOpen ? '16rem' : '0' }}
+        style={{ marginLeft: isSidebarOpen ? '14rem' : '0' }}
       >
         {/* Top Header Bar */}
-        <header className="px-6 py-4 border-b border-border flex items-center justify-between bg-card shrink-0 select-none">
+        <header className="px-5 py-3 border-b border-border flex items-center justify-between bg-card shrink-0 select-none">
           <div className="space-y-1">
             <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
               <Database className="h-5 w-5 text-primary" />
@@ -217,7 +217,7 @@ export default function KnowledgeBase() {
         </header>
 
         {/* Dynamic page state content renderer */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-6">
+        <div className="flex-1 p-5 overflow-y-auto space-y-5">
           {pageState === 'loading' && <LoadingState />}
 
           {pageState === 'error' && (

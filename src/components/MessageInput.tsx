@@ -1,5 +1,7 @@
-import { useState, KeyboardEvent, useRef } from 'react';
-import { Send, Mic, MicOff, Loader2, Paperclip, X, File, FileText, FileSpreadsheet, Presentation } from 'lucide-react';
+import { useState, KeyboardEvent, useRef, useEffect } from 'react';
+// `File` is aliased: the bare lucide export shadows the DOM File constructor,
+// which the speech-to-text handler needs to build its upload.
+import { Send, Mic, MicOff, Loader2, Paperclip, X, File as FileIcon, FileText, FileSpreadsheet, Presentation } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
@@ -22,16 +24,32 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
   const [isDragging, setIsDragging] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const { 
-    addMessageToCurrentChat, 
-    setIsLoading, 
+  const {
+    addMessageToCurrentChat,
+    setIsLoading,
     setStatusText,
     updateLastMessageInCurrentChat,
-    isLoading, 
-    getCurrentChat, 
-    createNewChat 
+    isLoading,
+    getCurrentChat,
+    createNewChat,
+    draftInput,
+    setDraftInput,
   } = useChatStore();
+
+  // Homepage action cards / quick-access tiles seed the composer through the
+  // store. Consume the draft once so picking the same card twice still works.
+  useEffect(() => {
+    if (!draftInput) return;
+    setInput(draftInput);
+    setDraftInput('');
+    const el = textareaRef.current;
+    if (el) {
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    }
+  }, [draftInput, setDraftInput]);
   const { toast } = useToast();
   const { isRecording, startRecording, stopRecording } = useAudioRecorder();
 
@@ -43,7 +61,7 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
   const getFileIcon = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
     switch (ext) {
-      case 'pdf': return <File className="h-4 w-4 text-red-500" />;
+      case 'pdf': return <FileIcon className="h-4 w-4 text-red-500" />;
       case 'xlsx':
       case 'xls':
       case 'csv': return <FileSpreadsheet className="h-4 w-4 text-green-500" />;
@@ -53,7 +71,7 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
       case 'ppt': return <Presentation className="h-4 w-4 text-orange-500" />;
       case 'md':
       case 'txt': return <FileText className="h-4 w-4 text-slate-500" />;
-      default: return <File className="h-4 w-4 text-muted-foreground" />;
+      default: return <FileIcon className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -372,8 +390,10 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
       isLanding ? "bg-transparent" : "border-t border-border bg-background"
     )}>
       <div className={cn(
-        "max-w-3xl mx-auto px-4 py-4",
-        isLanding ? "max-w-2xl px-0" : ""
+        "mx-auto",
+        // On the landing screen the parent owns width/rhythm so the composer
+        // lines up with the action cards and quick-access grid.
+        isLanding ? "w-full" : "max-w-3xl px-4 py-3"
       )}>
         <input
           type="file"
@@ -384,16 +404,18 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
           className="hidden"
         />
 
-        <div 
+        <div
           onDragOver={handleDragOver}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           className={cn(
-            "flex flex-col gap-2 p-2.5 transition-all duration-300",
-            "bg-background border rounded-[24px] shadow-sm ring-1 ring-border focus-within:ring-primary/20 focus-within:border-primary/30",
-            isDragging && "border-primary ring-2 ring-primary/25 bg-primary/5 scale-[1.01]",
-            isLanding && "shadow-2xl shadow-primary/5"
+            "flex flex-col gap-2 p-2.5 transition-all duration-200 ease-out",
+            "rounded-[26px] border border-primary/15 bg-card/85 backdrop-blur-xl",
+            "shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-10px_rgba(37,99,235,0.18)]",
+            "focus-within:border-primary/40 focus-within:shadow-[0_2px_4px_rgba(37,99,235,0.06),0_14px_34px_-12px_rgba(37,99,235,0.28)]",
+            isDragging && "border-primary bg-primary/5 ring-2 ring-primary/25",
+            isLanding && "p-3 shadow-[0_2px_6px_rgba(15,23,42,0.05),0_18px_44px_-14px_rgba(37,99,235,0.28)]"
           )}
         >
           {/* File chips row */}
@@ -409,6 +431,7 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
                   <button
                     onClick={() => removeFile(idx)}
                     type="button"
+                    aria-label={`Remove ${file.name}`}
                     className="ml-1 text-muted-foreground hover:text-foreground hover:bg-muted p-0.5 rounded-full transition-colors"
                   >
                     <X className="h-3 w-3" />
@@ -426,34 +449,39 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
               size="icon"
               onClick={handleFileSelectClick}
               disabled={isLoading || isTranscribing}
-              className="h-11 w-11 shrink-0 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Add documents"
+              className="h-11 w-11 shrink-0 rounded-full hover:bg-primary/[0.07] text-muted-foreground hover:text-primary transition-colors duration-200"
               title="Add documents"
             >
               <Paperclip className="h-5 w-5" />
             </Button>
 
             <Textarea
+              ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isLanding ? "How can I help you today?" : "Type your message..."}
+              placeholder="How can I help you today?"
               disabled={isLoading || isTranscribing}
+              aria-label="Message"
               className={cn(
-                "min-h-[56px] max-h-[200px] resize-none border-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent py-4 text-lg ml-0 flex-1",
-                !isLanding && "text-base py-3 h-14"
+                "resize-none border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 ml-0 flex-1",
+                "max-h-[200px] placeholder:text-muted-foreground",
+                isLanding ? "min-h-[60px] py-4 text-base" : "min-h-[48px] py-3 text-[15px]"
               )}
               rows={1}
             />
 
-            <div className="flex items-center gap-2 pb-1.5 pr-1.5">
+            <div className="flex items-center gap-1.5 pb-1.5 pr-1.5">
               <Button
                 onClick={handleMicClick}
                 variant={isRecording ? 'destructive' : 'ghost'}
                 size="icon"
                 disabled={isTranscribing || isLoading}
+                aria-label={isRecording ? 'Stop listening' : 'Start speech-to-text'}
                 className={cn(
-                  "h-11 w-11 shrink-0 rounded-full transition-all",
-                  isRecording ? "animate-pulse" : "hover:bg-muted"
+                  "h-11 w-11 shrink-0 rounded-full transition-colors duration-200",
+                  isRecording ? "animate-pulse" : "text-muted-foreground hover:bg-primary/[0.07] hover:text-primary"
                 )}
                 title={isRecording ? 'Stop listening' : 'Start speech-to-text'}
               >
@@ -469,9 +497,12 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
                 onClick={handleSend}
                 disabled={(!input.trim() && files.length === 0) || isLoading || isTranscribing}
                 size="icon"
+                aria-label="Send message"
                 className={cn(
-                  "h-11 w-11 shrink-0 rounded-full transition-all",
-                  ((!input.trim() && files.length === 0) || isLoading) ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground shadow-sm hover:scale-105 active:scale-95"
+                  "h-11 w-11 shrink-0 rounded-full transition-all duration-200 ease-out",
+                  ((!input.trim() && files.length === 0) || isLoading)
+                    ? "bg-muted text-muted-foreground"
+                    : "bg-gradient-to-br from-primary to-primary-secondary text-primary-foreground shadow-[0_4px_12px_-2px_rgba(37,99,235,0.45)] hover:scale-105 hover:shadow-[0_6px_16px_-2px_rgba(37,99,235,0.55)] active:scale-95"
                 )}
               >
                 <Send className="h-5 w-5" />

@@ -40,10 +40,10 @@ export default function SettingsPage() {
       {/* Main panel layout */}
       <main
         className="flex-1 transition-all duration-300 overflow-y-auto flex flex-col h-screen"
-        style={{ marginLeft: isSidebarOpen ? '16rem' : '0' }}
+        style={{ marginLeft: isSidebarOpen ? '14rem' : '0' }}
       >
         {/* Top Header Bar */}
-        <header className="px-6 py-4 border-b border-border flex items-center justify-between bg-card">
+        <header className="px-5 py-3 border-b border-border flex items-center justify-between bg-card">
           <div className="space-y-1">
             <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
               <SettingsIcon className="h-5 w-5 text-primary" />
@@ -60,10 +60,10 @@ export default function SettingsPage() {
         </header>
 
         {/* Settings Content Grid */}
-        <div className="flex-1 p-6 max-w-4xl w-full mx-auto space-y-6">
+        <div className="flex-1 p-5 max-w-4xl w-full mx-auto space-y-5">
 
           {/* Account Profile Card */}
-          <div className="bg-card border border-border p-5 rounded-xl shadow-2xs space-y-4">
+          <div className="bg-card border border-border p-4 rounded-xl shadow-2xs space-y-4">
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border pb-2">
               <User className="h-4.5 w-4.5 text-primary" /> Profile & Account
             </h3>
@@ -74,7 +74,7 @@ export default function SettingsPage() {
               </Avatar>
               <div className="flex-1 space-y-2 text-center sm:text-left">
                 <h4 className="text-sm font-semibold text-foreground">John Doe</h4>
-                <p className="text-xs text-muted-foreground">john.doe@retrieva.scom • Administrator</p>
+                <p className="text-xs text-muted-foreground">john.doe@retrieva.com • Administrator</p>
                 <div className="flex gap-2 justify-center sm:justify-start">
                   <Button variant="outline" size="sm" className="h-8 text-[11px] font-semibold">Change Avatar</Button>
                   <Button variant="ghost" size="sm" className="h-8 text-[11px] text-destructive hover:bg-destructive/10" onClick={() => logout()}>
@@ -86,7 +86,7 @@ export default function SettingsPage() {
           </div>
 
           {/* RAG Settings Card */}
-          <div className="bg-card border border-border p-5 rounded-xl shadow-2xs space-y-4">
+          <div className="bg-card border border-border p-4 rounded-xl shadow-2xs space-y-4">
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border pb-2">
               <Cpu className="h-4.5 w-4.5 text-primary" /> Model Settings
             </h3>
@@ -107,7 +107,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Retrieval Preferences Card */}
-          <div className="bg-card border border-border p-5 rounded-xl shadow-2xs space-y-4">
+          <div className="bg-card border border-border p-4 rounded-xl shadow-2xs space-y-4">
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border pb-2">
               <Database className="h-4.5 w-4.5 text-primary" /> Retrieval Configuration
             </h3>
@@ -132,7 +132,7 @@ export default function SettingsPage() {
           </div>
 
           {/* System Info Security */}
-          <div className="bg-card border border-border p-5 rounded-xl shadow-2xs space-y-4 text-xs">
+          <div className="bg-card border border-border p-4 rounded-xl shadow-2xs space-y-4 text-xs">
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border pb-2">
               <Lock className="h-4.5 w-4.5 text-primary" /> System Info & Security
             </h3>

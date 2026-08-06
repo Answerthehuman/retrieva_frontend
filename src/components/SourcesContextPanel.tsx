@@ -128,20 +128,21 @@ export const SourcesContextPanel = () => {
       {/* Sliding Side Panel */}
       <div
         className={cn(
-          "fixed right-0 top-0 h-screen w-[360px] bg-card border-l border-border shadow-2xl z-50 flex flex-col transition-all duration-300 ease-in-out",
+          "fixed right-0 top-0 h-screen w-[340px] bg-card border-l border-border shadow-2xl z-50 flex flex-col transition-all duration-300 ease-in-out",
           isRightSidebarOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
         {/* Panel Header */}
-        <div className="p-4 border-b border-border flex items-center justify-between">
+        <div className="p-3.5 border-b border-border flex items-center justify-between">
           <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
             <LayoutList className="h-4 w-4 text-primary" />
             Sources & Context
           </h3>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setRightSidebarOpen(false)}
+            aria-label="Close sources panel"
             className="h-8 w-8 hover:bg-muted rounded-full"
           >
             <X className="h-4 w-4" />
@@ -165,9 +166,9 @@ export const SourcesContextPanel = () => {
         </div>
 
         {/* Tab Contents */}
-        <ScrollArea className="flex-1 p-4">
+        <ScrollArea className="flex-1 p-3.5">
           {rightSidebarTab === 'sources' && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               {/* Document List Checklist */}
               <div className="space-y-2">
                 <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">

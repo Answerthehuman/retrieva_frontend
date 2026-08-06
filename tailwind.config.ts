@@ -21,7 +21,9 @@ export default {
   			foreground: 'hsl(var(--foreground))',
   			primary: {
   				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
+  				foreground: 'hsl(var(--primary-foreground))',
+  				secondary: 'hsl(var(--primary-secondary))',
+  				accent: 'hsl(var(--primary-accent))'
   			},
   			secondary: {
   				DEFAULT: 'hsl(var(--secondary))',
@@ -96,7 +98,7 @@ export default {
   		},
   		fontFamily: {
   			sans: [
-  				'Work Sans',
+  				'Open Sauce One',
   				'ui-sans-serif',
   				'system-ui',
   				'-apple-system',

@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { X, Upload, File, FileText, FileSpreadsheet, Presentation, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { knowledgeApi } from '@/lib/api';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -126,30 +127,68 @@ export const UploadModal = ({ isOpen, onClose, onFilesSelected }: UploadModalPro
     setQueue(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleUploadSubmit = () => {
-    if (queue.length === 0) return;
+  const [isUploading, setIsUploading] = useState(false);
 
-    queue.forEach(item => {
-      const ext = item.file.name.split('.').pop()?.toLowerCase() as DocType || 'pdf';
-      addDocument({
-        name: item.file.name,
-        collection: 'Marketing', // default collection context
-        type: ext,
-        status: 'Processing',
-        chunksCount: 0,
-        sizeBytes: item.file.size,
-        owner: 'John Doe',
-        language: 'English',
-        pagesCount: Math.floor(Math.random() * 8) + 1,
-        embeddingModel: 'text-embedding-3-small'
-      });
-    });
+  const handleUploadSubmit = async () => {
+    if (queue.length === 0) return;
+    setIsUploading(true);
 
     toast({
-      title: "Indexing batch queued",
-      description: `Successfully added ${queue.length} file(s) for vector indexing.`
+      title: "Uploading documents",
+      description: `Starting upload for ${queue.length} file(s)…`,
     });
 
+    let successCount = 0;
+
+    for (const item of queue) {
+      const ext = (item.file.name.split('.').pop()?.toLowerCase() as DocType) || 'pdf';
+      try {
+        const stats = await knowledgeApi.uploadDocument(item.file);
+
+        addDocument({
+          name: stats.file_name || item.file.name,
+          collection: stats.collection_name || 'General',
+          type: ext,
+          status: 'Indexed',
+          chunksCount: stats.inserted,
+          sizeBytes: item.file.size,
+          owner: 'John Doe',
+          language: 'English',
+          pagesCount: 1,
+          embeddingModel: 'models/gemini-embedding-2',
+        });
+        successCount++;
+      } catch (err: any) {
+        toast({
+          title: `Failed: ${item.file.name}`,
+          description: err.message || 'An error occurred during indexing.',
+          variant: 'destructive',
+        });
+
+        // Still register the document in the store as Failed
+        addDocument({
+          name: item.file.name,
+          collection: 'General',
+          type: ext,
+          status: 'Failed',
+          chunksCount: 0,
+          sizeBytes: item.file.size,
+          owner: 'John Doe',
+          language: 'English',
+          pagesCount: 0,
+          embeddingModel: 'models/gemini-embedding-2',
+        });
+      }
+    }
+
+    if (successCount > 0) {
+      toast({
+        title: "Upload complete",
+        description: `${successCount} of ${queue.length} file(s) indexed successfully.`,
+      });
+    }
+
+    setIsUploading(false);
     onClose();
   };
 

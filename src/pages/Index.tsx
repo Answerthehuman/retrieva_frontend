@@ -15,7 +15,7 @@ const Index = () => {
       <ChatSidebar />
       <main
         className="flex-1 transition-all duration-300"
-        style={{ marginLeft: isSidebarOpen ? '16rem' : '0' }}
+        style={{ marginLeft: isSidebarOpen ? '14rem' : '0' }}
       >
         <ChatWindow />
       </main>

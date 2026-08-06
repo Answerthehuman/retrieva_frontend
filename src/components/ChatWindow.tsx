@@ -4,7 +4,7 @@ import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
 import { SourcesContextPanel } from './SourcesContextPanel';
 import { Loader2, Settings, LogOut, Plus, X, Check } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Avatar, AvatarFallback } from './ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +15,17 @@ import {
 } from './ui/dropdown-menu';
 import { Button } from './ui/button';
 import { ModeToggle } from './ModeToggle';
+import { ActionCards } from './home/ActionCards';
+import { QuickAccess } from './home/QuickAccess';
+
+const USER_FIRST_NAME = 'John';
+
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+};
 
 export const ChatWindow = () => {
   const {
@@ -38,13 +49,12 @@ export const ChatWindow = () => {
   return (
     <div className="flex flex-col h-screen bg-background relative overflow-hidden">
       {/* User profile section in top-right */}
-      <div className="absolute top-6 right-6 flex items-center gap-2 z-30">
-        <span className="hidden md:inline-block text-sm font-semibold text-foreground/70 mr-1">John Doe</span>
+      <div className="absolute top-5 right-6 flex items-center gap-3 z-30">
+        <span className="hidden md:inline-block text-sm font-medium text-muted-foreground">John Doe</span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 overflow-hidden border border-border shadow-sm hover:scale-110 transition-transform">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src="" alt="John Doe" />
+            <Button variant="ghost" aria-label="Open account menu" className="relative h-9 w-9 rounded-full p-0 overflow-hidden border border-border shadow-sm transition-transform duration-200 hover:scale-105">
+              <Avatar className="h-9 w-9">
                 <AvatarFallback className="bg-primary/5 text-primary font-bold">JD</AvatarFallback>
               </Avatar>
             </Button>
@@ -74,18 +84,9 @@ export const ChatWindow = () => {
         <ModeToggle />
       </div>
 
-      {/* Branding in top-left corner */}
-      {isLanding && (
-        <div className="absolute top-6 left-6 animate-in fade-in duration-700 z-15">
-          <h2 className="text-lg font-bold tracking-tight text-foreground/80">
-            Retrieva RAG
-          </h2>
-        </div>
-      )}
-
       {/* Active Context Selector (only shown when not landing screen) */}
       {!isLanding && (
-        <div className="w-full border-b border-border bg-card px-4 py-3 flex items-center justify-center z-20 shadow-2xs mt-[88px] animate-in slide-in-from-top duration-300">
+        <div className="w-full border-b border-border bg-card px-4 py-2 flex items-center justify-center z-20 shadow-2xs mt-[60px] animate-in slide-in-from-top duration-300">
           <div className="flex items-center gap-2 max-w-3xl w-full text-xs">
             <span className="font-bold text-muted-foreground uppercase tracking-wider shrink-0 mr-1">
               Using Context
@@ -95,11 +96,12 @@ export const ChatWindow = () => {
               {activeContextCollections.map((col) => (
                 <span
                   key={col}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary rounded-full font-medium border border-primary/20 shadow-2xs text-[11px] animate-in zoom-in-95 duration-150"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full font-medium border border-primary/20 shadow-2xs text-[11px] animate-in zoom-in-95 duration-150"
                 >
                   {col}
                   <button
                     onClick={() => toggleActiveContextCollection(col)}
+                    aria-label={`Remove ${col} from active context`}
                     className="hover:bg-primary/20 p-0.5 rounded-full text-primary transition-all cursor-pointer"
                   >
                     <X className="h-2.5 w-2.5" />
@@ -112,13 +114,13 @@ export const ChatWindow = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 px-2.5 rounded-full border-dashed gap-1 text-[10px] font-medium"
+                    className="h-7 px-2.5 rounded-full border-dashed gap-1 text-[11px] font-medium"
                   >
                     <Plus className="h-3 w-3" /> Add / Change
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-48 mt-1">
-                  <DropdownMenuLabel className="text-[9px] text-muted-foreground uppercase">
+                  <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase">
                     Toggle Active Collections
                   </DropdownMenuLabel>
                   {['Marketing', 'Engineering', 'HR', 'Finance', 'Product'].map((col) => {
@@ -144,31 +146,35 @@ export const ChatWindow = () => {
       {/* Main Messages scroll pane */}
       <div className="flex-1 overflow-y-auto">
         {isLanding ? (
-          <div className="flex flex-col items-center justify-center min-h-full px-4 text-center">
-            <div className="max-w-3xl w-full space-y-8 animate-in fade-in zoom-in duration-500">
-              <div className="space-y-4">
-                <p className="text-xl md:text-2xl font-medium text-foreground max-w-xl mx-auto">
-                  What&apos;s on the agenda today?
+          <div className="flex min-h-full flex-col justify-center px-6 py-10">
+            <div className="mx-auto w-full max-w-3xl 2xl:max-w-4xl space-y-7 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              {/* Greeting */}
+              <header className="space-y-1.5">
+                <h1 className="text-[2.5rem] xl:text-[2.75rem] font-bold leading-[1.1] tracking-tight text-foreground">
+                  {getGreeting()}, {USER_FIRST_NAME}! <span aria-hidden="true">👋</span>
+                </h1>
+                <p className="text-[15px] font-medium text-muted-foreground">
+                  Your AI knowledge companion for faster, smarter decisions.
                 </p>
-              </div>
-              <div className="max-w-2xl mx-auto w-full pt-4">
-                <MessageInput isLanding />
-              </div>
+              </header>
+
+              {/* Actionable shortcuts */}
+              <ActionCards />
+
+              {/* Primary focus: the composer */}
+              <MessageInput isLanding />
+
+              <QuickAccess />
             </div>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-            <div className="text-center py-8 opacity-50">
-              <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-                ABFRL Product Recommendation
-              </h2>
-            </div>
+          <div className="max-w-3xl mx-auto px-4 py-5 space-y-5">
             {messages.map((message, index) => (
               <MessageBubble key={index} message={message} />
             ))}
             {isLoading && (
-              <div className="flex items-center gap-2 text-muted-foreground animate-pulse">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <div role="status" className="flex items-center gap-2 text-muted-foreground animate-pulse">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
                 <span className="text-sm">{statusText || "Assistant is thinking..."}</span>
               </div>
             )}

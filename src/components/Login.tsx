@@ -22,45 +22,49 @@ export const Login = () => {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/40 px-4">
-      <Card className="w-full max-w-md shadow-lg border-primary/10">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-3xl font-bold tracking-tight">Welcome Back</CardTitle>
+      <Card className="w-full max-w-sm shadow-lg border-primary/10">
+        <CardHeader className="space-y-1 text-center pb-2">
+          <CardTitle className="text-2xl font-bold tracking-tight">Welcome back</CardTitle>
           <CardDescription>
-            Please enter your credentials to continue.
+            Sign in to continue to Retrieva.
             <br />
-            <span className="text-xs text-muted-foreground italic">(Hint: admin / password)</span>
+            <span className="text-xs text-muted-foreground">(Hint: admin / password)</span>
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username font-medium">Username</Label>
+          <CardContent className="space-y-3.5">
+            <div className="space-y-1.5">
+              <Label htmlFor="username" className="font-medium text-sm">Username</Label>
               <Input
                 id="username"
                 type="text"
                 placeholder="Enter username"
-                className="h-11"
+                className="h-10"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password font-medium">Password</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="font-medium text-sm">Password</Label>
               <Input
                 id="password"
                 type="password"
                 placeholder="Enter password"
-                className="h-11"
+                className="h-10"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
-            {error && <p className="text-sm text-destructive font-medium animate-in fade-in slide-in-from-top-1">{error}</p>}
+            {error && (
+              <p role="alert" className="text-sm text-destructive font-medium animate-in fade-in slide-in-from-top-1">
+                {error}
+              </p>
+            )}
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full h-11 text-base font-semibold transition-all hover:scale-[1.01]">
+            <Button type="submit" className="w-full h-10 text-sm font-semibold transition-all hover:scale-[1.01]">
               Sign In
             </Button>
           </CardFooter>

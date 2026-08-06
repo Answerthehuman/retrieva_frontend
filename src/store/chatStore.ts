@@ -58,6 +58,9 @@ interface ChatState {
   updateChatSession: (id: string, sessionId: string) => void;
   deleteChat: (id: string) => void;
   getCurrentChat: () => Chat | undefined;
+  /** One-shot prefill for the composer, set by homepage action cards. */
+  draftInput: string;
+  setDraftInput: (text: string) => void;
   setIsLoading: (loading: boolean) => void;
   setStatusText: (text: string) => void;
   updateLastMessageInCurrentChat: (updater: (message: Message) => Message) => void;
@@ -91,6 +94,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     nextThreadNumber: 1,
     isLoading: false,
     statusText: '',
+    draftInput: '',
     isSidebarOpen: true,
     isRightSidebarOpen: false,
     rightSidebarTab: 'sources',
@@ -172,6 +176,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       const { chats, currentChatId } = get();
       return chats.find((c) => c.id === currentChatId);
     },
+
+    setDraftInput: (text) => set({ draftInput: text }),
 
     setIsLoading: (loading) => set({ isLoading: loading }),
     setStatusText: (text) => set({ statusText: text }),
