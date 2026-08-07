@@ -1,5 +1,6 @@
 import { Message } from '@/store/chatStore';
 import { SourcesUsed } from './SourcesUsed';
+import { Markdown } from './Markdown';
 import { User, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -10,37 +11,6 @@ interface MessageBubbleProps {
 
 export const MessageBubble = ({ message }: MessageBubbleProps) => {
   const isUser = message.role === 'user';
-
-  const renderContent = (content: string) => {
-    if (!content) return null;
-
-    const regex = /(### Social Media Insight|### Trend Insight)/g;
-    const parts = content.split(regex);
-
-    return parts.map((part, index) => {
-      if (part === '### Social Media Insight') {
-        return (
-          <h2 key={index} className="text-base font-extrabold text-foreground mt-4 mb-2 tracking-wide border-l-4 border-pink-500 pl-2">
-            Social Media Insight
-          </h2>
-        );
-      } else if (part === '### Trend Insight') {
-        return (
-          <h2 key={index} className="text-base font-extrabold text-foreground mt-4 mb-2 tracking-wide border-l-4 border-blue-500 pl-2">
-            Trend Insight
-          </h2>
-        );
-      } else {
-        const text = part.trim();
-        if (!text) return null;
-        return (
-          <p key={index} className="text-sm leading-relaxed whitespace-pre-wrap mb-3 text-foreground/90">
-            {text}
-          </p>
-        );
-      }
-    });
-  };
 
   return (
     <div
@@ -86,7 +56,7 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
             </p>
           ) : (
             <div className="space-y-1">
-              {renderContent(message.content)}
+              <Markdown content={message.content} />
               {message.sources && message.sources.length > 0 && (
                 <SourcesUsed sources={message.sources} />
               )}

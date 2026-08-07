@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ChatModeId } from '@/lib/modes';
 
 export interface Product {
   index_number: number;
@@ -64,6 +65,10 @@ interface ChatState {
   /** One-shot prefill for the composer, set by homepage action cards. */
   draftInput: string;
   setDraftInput: (text: string) => void;
+  /** Active action mode, sent to the backend as `mode` on each chat request.
+   *  Null = normal chat. Persists across turns until the user clears it. */
+  activeMode: ChatModeId | null;
+  setActiveMode: (mode: ChatModeId | null) => void;
   setIsLoading: (loading: boolean) => void;
   setStatusText: (text: string) => void;
   updateLastMessageInCurrentChat: (updater: (message: Message) => Message) => void;
@@ -98,6 +103,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     isLoading: false,
     statusText: '',
     draftInput: '',
+    activeMode: null,
     isSidebarOpen: true,
     isRightSidebarOpen: false,
     rightSidebarTab: 'sources',
@@ -182,6 +188,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     setDraftInput: (text) => set({ draftInput: text }),
+    setActiveMode: (mode) => set({ activeMode: mode }),
 
     setIsLoading: (loading) => set({ isLoading: loading }),
     setStatusText: (text) => set({ statusText: text }),

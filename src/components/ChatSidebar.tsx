@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeft, Plus, Trash2, MessageSquare, Database, Settings as SettingsIcon, Folder, Sparkles } from 'lucide-react';
+import { PanelLeftClose, PanelLeft, Plus, Trash2, MessageSquare, Database, Settings as SettingsIcon, Folder, Sparkles, Plug } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { useKnowledgeStore } from '@/store/knowledgeStore';
 import { Button } from './ui/button';
@@ -35,6 +35,7 @@ export const ChatSidebar = () => {
   const currentPath = location.pathname;
   const isChatActive = currentPath === '/' || currentPath === '';
   const isKbActive = currentPath.startsWith('/knowledge-base');
+  const isConnectorsActive = currentPath.startsWith('/connectors');
   const isSettingsActive = currentPath.startsWith('/settings');
 
   const totalDocsCount = documents.length;
@@ -185,6 +186,19 @@ export const ChatSidebar = () => {
               </div>
             )}
           </div>
+
+          <button
+            onClick={() => navigate('/connectors')}
+            className={cn(
+              'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all duration-200 text-sm',
+              isConnectorsActive
+                ? 'bg-primary/[0.08] text-primary font-semibold'
+                : 'text-foreground/75 font-medium hover:bg-primary/[0.05] hover:text-foreground'
+            )}
+          >
+            <Plug className={cn('h-[18px] w-[18px]', isConnectorsActive ? 'text-primary' : 'text-muted-foreground')} strokeWidth={1.9} />
+            <span>Connectors</span>
+          </button>
 
           <button
             onClick={() => navigate('/settings')}

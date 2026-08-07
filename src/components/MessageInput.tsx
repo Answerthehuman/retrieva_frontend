@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { SarvamAIClient } from 'sarvamai';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { cn } from '@/lib/utils';
+import { ModePicker } from './ModePicker';
+import { getMode } from '@/lib/modes';
 
 interface MessageInputProps {
   isLanding?: boolean;
@@ -38,7 +40,11 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
     draftInput,
     setDraftInput,
     activeCollection,
+    activeMode,
+    setActiveMode,
   } = useChatStore();
+
+  const currentMode = getMode(activeMode);
 
   // Homepage action cards / quick-access tiles seed the composer through the
   // store. Consume the draft once so picking the same card twice still works.
@@ -241,7 +247,7 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
             streamFailed = data.message || 'The assistant hit an error.';
           }
         },
-        { collectionName: activeCollection }
+        { collectionName: activeCollection, mode: activeMode }
       );
 
       setIsLoading(false);
@@ -422,12 +428,18 @@ export const MessageInput = ({ isLanding, onDocumentsSelected }: MessageInputPro
               <Paperclip className="h-5 w-5" />
             </Button>
 
+            <ModePicker
+              activeMode={activeMode}
+              onSelect={setActiveMode}
+              disabled={isLoading || isTranscribing}
+            />
+
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="How can I help you today?"
+              placeholder={currentMode?.placeholder ?? "How can I help you today?"}
               disabled={isLoading || isTranscribing}
               aria-label="Message"
               className={cn(

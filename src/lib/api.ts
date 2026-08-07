@@ -221,7 +221,7 @@ export const chatApi = {
     message: string,
     sessionId: string,
     onEvent: (event: string, data: any) => void,
-    options?: { collectionName?: string; filters?: string }
+    options?: { collectionName?: string; filters?: string; mode?: string | null }
   ): Promise<void> => {
     const response = await fetch(`${API_BASE_URL}/chat/sessions/${sessionId}/messages`, {
       method: 'POST',
@@ -232,6 +232,10 @@ export const chatApi = {
         message,
         collection_name: options?.collectionName,
         filters: options?.filters,
+        // Action mode (summarise | insights | analyse | explain). The backend
+        // swaps in a different system prompt for it; the user's message text is
+        // deliberately left untouched.
+        mode: options?.mode ?? undefined,
       }),
     });
 
